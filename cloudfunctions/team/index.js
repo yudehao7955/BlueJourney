@@ -226,9 +226,10 @@ async function joinTeam(openid, teamId) {
     // 如果队伍已经出发，需要为新队员创建活动（优先复用用户当前进行中的活动）
     if (team.status === 2) { // 行进中
       // 先查找用户是否已有进行中的活动
+      // 通过 userId 查询更可靠（因为所有活动都有 userId 字段）
       const existingRes = await db.collection('activities')
         .where({
-          _openid: openid,
+          userId: user._id,
           status: 1 // 进行中
         })
         .limit(1)
@@ -247,6 +248,7 @@ async function joinTeam(openid, teamId) {
         // 没有已有活动，创建新活动
         const activity = {
           userId: user._id,
+          openid: openid,
           _openid: openid,
           title: `${team.teamName} - 队伍行程`,
           status: 1, // 1-进行中
@@ -496,9 +498,10 @@ async function startJourney(openid, teamId) {
       // 队员已经有进行中的活动，直接复用，不创建新的
       if (!member.activityId) {
         // 查找队员是否已有进行中的活动
+        // 通过 userId 查询更可靠（因为所有活动都有 userId 字段）
         const existingRes = await db.collection('activities')
           .where({
-            openid: member.openid,
+            userId: member.userId,
             status: 1 // 进行中
           })
           .limit(1)
@@ -514,10 +517,12 @@ async function startJourney(openid, teamId) {
               isTeamActivity: true
             }
           })
+          console.log(`[startJourney] 复用已有活动 ${member.activityId} for ${member.nickname}`)
         } else {
           // 没有已有活动，创建新活动
           const activity = {
             userId: member.userId,
+            openid: member.openid,
             _openid: member.openid,
             title: `${team.teamName} - 队伍行程`,
             status: 1, // 进行中
@@ -533,6 +538,7 @@ async function startJourney(openid, teamId) {
           
           const activityRes = await db.collection('activities').add({ data: activity })
           member.activityId = activityRes._id
+          console.log(`[startJourney] 创建新活动 ${member.activityId} for ${member.nickname}`)
         }
       }
       // 如果已经有activityId，什么都不用做，直接保留
