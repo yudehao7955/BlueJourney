@@ -10,11 +10,42 @@ const CONFIG = {
   MIN_DISTANCE: 5,         // 距离 ≥ 5米记录（增大，减少静止点）
   MIN_TIME_INTERVAL: 2000, // 每2秒强制记录一次（缩短）
   MIN_SPEED: 0,             // 不过滤速度
-  MAX_SPEED: 55            // 速度 < 55 km/h（过滤异常跳点）
+  MAX_SPEED: 55,            // 速度 < 55 km/h（过滤异常跳点）
+  // 停留点检测配置
+  STOP_SPEED_THRESHOLD: 0.5,  // km/h 低于此速度视为可能停止
+  STOP_DURATION_THRESHOLD: 2 * 60 * 1000, // 2分钟 静止超过此时长停止记录
+  // 卡尔曼滤波配置
+  KALMAN_PROCESS_NOISE: 0.01,
+  KALMAN_MEASUREMENT_NOISE: 10
 }
 
 const CLOUD_SYNC_MIN_POINTS = 10
 const CLOUD_SYNC_INTERVAL_MS = 60 * 1000
+
+// 一维卡尔曼滤波 - 用于平滑GPS经纬度，抑制噪声和漂移
+class KalmanFilter {
+  constructor(processNoise = 0.01, measurementNoise = 10) {
+    this.Q = processNoise;      // 过程噪声
+    this.R = measurementNoise; // 测量噪声
+    this.P = 1;                // 估计误差协方差
+    this.K = 0;                // 卡尔曼增益
+    this.x = null;             // 当前估计值
+  }
+
+  filter(measurement) {
+    if (this.x === null) {
+      this.x = measurement;
+      return this.x;
+    }
+    // 预测
+    this.P = this.P + this.Q;
+    // 更新
+    this.K = this.P / (this.P + this.R);
+    this.x = this.x + this.K * (measurement - this.x);
+    this.P = (1 - this.K) * this.P;
+    return this.x;
+  }
+}
 
 // 工具函数
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -58,7 +89,10 @@ Page({
     currentDistance: '0.00',
     currentSpeed: '0.0',
     currentDuration: '00:00:00',
-    startTime: null
+    startTime: null,
+    // 停留点检测状态
+    stopStartTime: null,
+    isStopped: false
   },
   onLoad() {
     this.login()
@@ -224,10 +258,16 @@ Page({
             that._cloudSyncedCount = 0
             that._lastCloudSyncAt = Date.now()
             that._appendInProgress = false
+            // 初始化卡尔曼滤波器（平滑GPS位置）
+            that.latFilter = new KalmanFilter(CONFIG.KALMAN_PROCESS_NOISE, CONFIG.KALMAN_MEASUREMENT_NOISE)
+            that.lngFilter = new KalmanFilter(CONFIG.KALMAN_PROCESS_NOISE, CONFIG.KALMAN_MEASUREMENT_NOISE)
+            // 初始化停留点检测
             that.setData({
               activityId,  // 保存 activityId
               isRecording: true,
               startTime: Date.now(),
+              stopStartTime: null,
+              isStopped: false,
               trackPoints: [{ latitude: res.latitude, longitude: res.longitude, speed: 0, timestamp: Date.now() }],
               currentDistance: '0.00',
               currentSpeed: '0.0',
@@ -407,15 +447,53 @@ Page({
       return
     }
     
+    // ===== 卡尔曼滤波平滑 =====
+    // 对原始经纬度进行滤波，抑制GPS噪声和漂移
+    const filteredLat = this.latFilter.filter(res.latitude)
+    const filteredLng = this.lngFilter.filter(res.longitude)
+    
     // 3. 计算时间间隔
     const lastRecordTime = this.data.lastRecordTime || 0
     const timeInterval = now - lastRecordTime
     
-    // 4. 计算移动距离
-    const distance = lastPoint ? calculateDistance(lastPoint.latitude, lastPoint.longitude, res.latitude, res.longitude) : 0
+    // 4. 计算移动距离（使用滤波后的坐标）
+    const distance = lastPoint ? calculateDistance(lastPoint.latitude, lastPoint.longitude, filteredLat, filteredLng) : 0
     
     // 5. 计算速度（优先用 GPS 速度，否则用距离计算）
     const speedKmh = res.speed > 0 ? res.speed * 3.6 : (distance / (timeInterval / 1000) * 3.6) || 0
+    
+    // ===== 停留点检测 =====
+    // 速度低于阈值，可能静止
+    if (speedKmh < CONFIG.STOP_SPEED_THRESHOLD) {
+      if (!this.data.stopStartTime) {
+        // 刚开始静止，记录开始时间
+        this.setData({ stopStartTime: now })
+      } else if (now - this.data.stopStartTime >= CONFIG.STOP_DURATION_THRESHOLD) {
+        // 静止超过阈值，进入停止模式，不再记录新点（只更新地图中心）
+        if (!this.data.isStopped) {
+          console.log(`[index] 进入停留模式，静止超过 ${CONFIG.STOP_DURATION_THRESHOLD / 1000} 秒，停止记录新点`)
+          this.setData({ isStopped: true })
+        }
+        this.setData({
+          latitude: filteredLat,
+          longitude: filteredLng
+        })
+        return
+      }
+    } else {
+      // 恢复移动，重置停留检测
+      if (this.data.isStopped) {
+        console.log(`[index] 恢复移动，重新开始记录`)
+        this.setData({ 
+          stopStartTime: null, 
+          isStopped: false 
+        })
+      } else {
+        this.setData({ 
+          stopStartTime: null
+        })
+      }
+    }
     
     // 6. 判断是否需要记录
     const shouldRecord = !lastPoint || 
@@ -425,8 +503,8 @@ Page({
     if (!shouldRecord) {
       // 即使不记录轨迹，也要更新地图中心
       this.setData({
-        latitude: res.latitude,
-        longitude: res.longitude
+        latitude: filteredLat,
+        longitude: filteredLng
       })
       console.log(`[index] 点被过滤：距离 ${distance.toFixed(1)}m < ${CONFIG.MIN_DISTANCE}m，时间 ${timeInterval}ms < ${CONFIG.MIN_TIME_INTERVAL}ms`)
       return
@@ -435,17 +513,17 @@ Page({
     // 异常高速跳点（多为 GPS 漂移），不写入轨迹
     if (lastPoint && speedKmh > CONFIG.MAX_SPEED) {
       this.setData({
-        latitude: res.latitude,
-        longitude: res.longitude
+        latitude: filteredLat,
+        longitude: filteredLng
       })
       console.log(`[index] 点被过滤：速度 ${speedKmh.toFixed(1)}km/h > ${CONFIG.MAX_SPEED}km/h`)
       return
     }
     
-    // 记录轨迹点
+    // 记录轨迹点（使用滤波后的坐标）
     const newPoint = { 
-      latitude: res.latitude, 
-      longitude: res.longitude, 
+      latitude: filteredLat, 
+      longitude: filteredLng, 
       speed: speedKmh, 
       accuracy: res.accuracy, 
       heading: res.direction, 
@@ -465,13 +543,40 @@ Page({
     }
     activeDuration = Math.max(0, activeDuration)
     
-    const polylines = buildMapPolylines(newTrackPoints)
+    // ===== 增量更新 polylines（不需要全量重计算，提升性能）=====
+    let polylines = this.data.polylines || []
+    const basePolylineOptions = {
+      color: '#0066CC',
+      width: 6,
+      dottedLine: false,
+      borderColor: '#004080',
+      borderWidth: 2
+    }
+    
+    if (polylines.length === 0) {
+      // 初始情况，全量计算
+      polylines = buildMapPolylines(newTrackPoints)
+    } else {
+      // 增量更新：追加到最后一段
+      const lastSegment = polylines[polylines.length - 1]
+      if (lastSegment.points.length < 400) {
+        // 最后一段还没满，直接追加
+        lastSegment.points.push(newPoint)
+      } else {
+        // 最后一段已满，新建一段（和前一段重叠一个点保证连续）
+        const prevLastPoint = lastSegment.points[lastSegment.points.length - 1]
+        polylines.push({ 
+          ...basePolylineOptions, 
+          points: [prevLastPoint, newPoint] 
+        })
+      }
+    }
     
     // 移除地图中心的配速显示
     this.setData({
       trackPoints: newTrackPoints,
-      latitude: res.latitude,  // 地图中心跟随定位
-      longitude: res.longitude,
+      latitude: filteredLat,  // 地图中心跟随定位
+      longitude: filteredLng,
       currentDistance: (totalMeters / 1000).toFixed(2),
       currentSpeed: speedKmh.toFixed(1),
       currentDuration: formatDuration(Math.max(0, activeDuration)),
@@ -486,7 +591,7 @@ Page({
         callout: { content: '起点', padding: 8, borderRadius: 4, display: 'ALWAYS' }
       }] : []
     }, () => {
-      console.log(`[index] 已添加轨迹点，当前共 ${newTrackPoints.length} 点，polylines ${polylines.length} 段`)
+      console.log(`[index] 已添加轨迹点（卡尔曼滤波），当前共 ${newTrackPoints.length} 点，polylines ${polylines.length} 段`)
       this.persistActiveTrackLocal()
       this.tryCloudIncrementalSync()
     })
@@ -814,6 +919,14 @@ Page({
                       trackPoints: trackRes.result.trackPoints,
                       isRecording: true
                     })
+                    // 恢复卡尔曼滤波器，用最后一个点初始化
+                    if (trackRes.result.trackPoints.length > 0) {
+                      const last = trackRes.result.trackPoints[trackRes.result.trackPoints.length - 1]
+                      that.latFilter = new KalmanFilter(CONFIG.KALMAN_PROCESS_NOISE, CONFIG.KALMAN_MEASUREMENT_NOISE)
+                      that.lngFilter = new KalmanFilter(CONFIG.KALMAN_PROCESS_NOISE, CONFIG.KALMAN_MEASUREMENT_NOISE)
+                      that.latFilter.filter(last.latitude)
+                      that.lngFilter.filter(last.longitude)
+                    }
                     that.saveActivity() // 自动保存并停止
                     wx.showToast({ title: '队伍行程已结束，轨迹已保存', icon: 'success' })
                   }
@@ -832,7 +945,13 @@ Page({
             startTime: activity.startTime ? new Date(activity.startTime).getTime() : Date.now(),
             totalPauseTime: activity.totalPauseTime || 0,
             isPaused: activity.isPaused || false,
+            stopStartTime: null,
+            isStopped: false
           })
+
+          // 初始化卡尔曼滤波器
+          that.latFilter = new KalmanFilter(CONFIG.KALMAN_PROCESS_NOISE, CONFIG.KALMAN_MEASUREMENT_NOISE)
+          that.lngFilter = new KalmanFilter(CONFIG.KALMAN_PROCESS_NOISE, CONFIG.KALMAN_MEASUREMENT_NOISE)
           
           // 获取轨迹点，恢复地图显示
           wx.cloud.callFunction({
@@ -848,11 +967,18 @@ Page({
                 that._cloudSyncedCount = trackRes.result.trackPoints.length
                 that._lastCloudSyncAt = Date.now()
                 
-                // 重新构建polylines显示
+                // 重新构建polylines显示（恢复时全量计算）
                 const polylines = buildMapPolylines(trackRes.result.trackPoints)
                 that.setData({
                   polylines: polylines
                 })
+                
+                // 用最后一个点初始化卡尔曼滤波
+                if (trackRes.result.trackPoints.length > 0) {
+                  const last = trackRes.result.trackPoints[trackRes.result.trackPoints.length - 1]
+                  that.latFilter.filter(last.latitude)
+                  that.lngFilter.filter(last.longitude)
+                }
                 
                 // 计算统计数据
                 if (trackRes.result.trackPoints.length > 0) {
