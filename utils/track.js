@@ -18,20 +18,25 @@ function buildMapPolylines(points, opts = {}) {
 
   // 确保每个点都有正确的经纬度属性
   // 兼容从云数据库读出时经纬度是字符串的情况
+  // 检查经纬度是否在合理范围内：纬度(-90 ~ 90)，经度(-180 ~ 180)
+  // 不直接排除经纬度恰好为0的点（兼容赤道/本初子午线附近真实轨迹）
   const coords = points.map(p => ({
     latitude: Number(p.latitude),
     longitude: Number(p.longitude)
   })).filter(p => 
     !isNaN(p.latitude) && 
     !isNaN(p.longitude) &&
-    p.latitude !== 0 && 
-    p.longitude !== 0
+    p.latitude >= -90 && p.latitude <= 90 &&
+    p.longitude >= -180 && p.longitude <= 180 &&
+    !(p.latitude === 0 && p.longitude === 0) // 只排除全0无效点
   )
 
   console.log(`[buildMapPolylines] 输入点数 ${points.length}, 有效点数 ${coords.length}`)
 
   if (coords.length < 2) {
-    console.log('[buildMapPolylines] 有效点数少于2，无法绘制线')
+    if (points.length > 0) {
+      console.warn(`[buildMapPolylines] 输入 ${points.length} 个点，但有效点不足 2 个，请检查点数据格式`)
+    }
     return []
   }
 
