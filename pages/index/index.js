@@ -44,6 +44,7 @@ Page({
     scale: 14,
     subKey: 'G7KBZ-VLFCA-ZUFK2-CHSJA-XLK4F-YLFPY',
     enableRotate: false,
+    showLocation: false,  // 初始不显示地图自带定位，避免二次弹窗
     isRecording: false,
     isPaused: false,
     pauseStartTime: null,
@@ -114,24 +115,38 @@ Page({
   },
   // 获取当前位置
   getLocation() {
-    wx.getLocation({
-      type: 'gcj02',
-      success: (res) => {
-        this.setData({
-          latitude: res.latitude,
-          longitude: res.longitude,
-          markers: [{
-            id: 0,
-            latitude: res.latitude,
-            longitude: res.longitude,
-            width: 30,
-            height: 30,
-            
-          }]
-        })
-      },
-      fail: () => {
-        wx.showToast({ title: '定位失败，请开启权限', icon: 'none' })
+    wx.getSetting({
+      success: (settingRes) => {
+        if (settingRes.authSetting['scope.userLocation']) {
+          // 已授权，直接获取位置并开启 showLocation
+          wx.getLocation({
+            type: 'gcj02',
+            success: (res) => {
+              this.setData({
+                latitude: res.latitude,
+                longitude: res.longitude,
+                showLocation: true,
+                markers: [{
+                  id: 0,
+                  latitude: res.latitude,
+                  longitude: res.longitude,
+                  width: 30,
+                  height: 30,
+                }]
+              })
+              // 移动到当前位置
+              const mapCtx = wx.createMapContext('myMap', this)
+              mapCtx.moveToLocation()
+            },
+            fail: () => {
+              wx.showToast({ title: '定位失败，请开启权限', icon: 'none' })
+            }
+          })
+        } else {
+          // 未授权，不开启 showLocation，避免二次弹窗
+          // 用户点击开始记录时会请求授权，之后再开启
+          console.log('[index] 定位未授权，等待用户点击开始记录时再请求')
+        }
       }
     })
   },
@@ -187,6 +202,9 @@ Page({
     wx.getLocation({
       type: 'gcj02',
       success: (res) => {
+        // 定位成功后开启 showLocation（此时已有授权，不会二次弹窗）
+        that.setData({ showLocation: true })
+        
         // 先创建活动，获取 activityId
         wx.cloud.callFunction({
           name: 'activity',

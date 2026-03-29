@@ -10,7 +10,7 @@
     markers="{{markers}}"
     polyline="{{polylines}}"
     subkey="{{subKey}}"
-    show-location
+    show-location="{{showLocation}}"
     enable-zoom="true"
     enable-scroll="true"
     enable-rotate="{{enableRotate}}"
