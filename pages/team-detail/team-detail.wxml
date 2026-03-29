@@ -1,0 +1,136 @@
+<!--pages/team-detail/team-detail.wxml-->
+<view class="container">
+  <!-- 地图区域（占据大部分面积） -->
+  <map 
+    id="teamMap"
+    class="map {{showMemberPanel ? 'map-short' : ''}}"
+    latitude="{{latitude}}" 
+    longitude="{{longitude}}"
+    scale="16"
+    markers="{{markers}}"
+    polyline="{{polylines}}"
+    enable-zoom="true"
+    enable-scroll="true"
+    subkey="{{subKey}}"
+  ></map>
+
+  <!-- 队员面板（抽屉）- 点击底部把手展开/收起 -->
+  <view class="member-panel {{showMemberPanel ? 'show' : ''}}">
+    <!-- 顶部拖动把手 + 队伍信息 -->
+    <view class="drag-handle" catchtap="toggleMemberPanel">
+      <view class="drag-bar"></view>
+      <!-- 队伍名称和人数挪到这里（下方） -->
+      <view class="team-info">
+        <text class="team-name">{{team.teamName}}</text>
+        <text class="member-count">{{team.memberCount || 0}}/{{team.maxMembers || 10}} 人</text>
+      </view>
+      <text class="drag-text">{{showMemberPanel ? '收起队员列表' : '展开队员列表'}}</text>
+    </view>
+    
+    <!-- 行程状态 & 操作按钮 -->
+    <view class="journey-status">
+      <!-- 状态提示 -->
+      <view class="status-text">
+        <block wx:if="{{team.status === 1}}">等待出发，队长点击开始后全队自动开启记录</block>
+        <block wx:if="{{team.status === 2}}">正在划行，已收集 {{team.memberCount || 0}} 条轨迹</block>
+        <block wx:if="{{team.status === 3}}">行程已结束</block>
+      </view>
+      <!-- 操作按钮：邀请队员（任何人都可以生成二维码） -->
+      <view class="status-actions">
+        <button class="btn-share" bindtap="showInviteQrCode">邀请队员</button>
+        <block wx:if="{{currentOpenid === team.creatorOpenid}}">
+          <button wx:if="{{team.status === 1}}" class="btn-start" bindtap="startJourney">开始出发</button>
+          <button wx:if="{{team.status === 2}}" class="btn-end" bindtap="endJourney">结束行程</button>
+        </block>
+      </view>
+    </view>
+    
+    <scroll-view class="member-list" scroll-y="{{true}}">
+      <block wx:for="{{team.members}}" wx:key="openid">
+        <view 
+          class="member-card {{item.openid === currentOpenid ? 'self' : ''}}" 
+          catchtap="focusMemberLocation" 
+          data-latitude="{{item.location ? item.location.latitude : ''}}" 
+          data-longitude="{{item.location ? item.location.longitude : ''}}"
+          data-openid="{{item.openid}}"
+        >
+          <image class="member-avatar" src="{{item.avatarUrl || '/images/user.png'}}" mode="aspectFill"></image>
+          <view class="member-info">
+            <text class="member-name">{{item.nickname}}</text>
+            <text wx:if="{{item.role === 'leader'}}" class="member-role">队长</text>
+          </view>
+          <view wx:if="{{item.lastUpdate}}" class="member-time">
+            <text>{{item.lastUpdate}}</text>
+          </view>
+          <view 
+            wx:if="{{currentOpenid === team.creatorOpenid && item.openid !== team.creatorOpenid}}" 
+            class="kick-btn" 
+            catchtap="showKickConfirm" 
+            data-openid="{{item.openid}}" 
+            data-nickname="{{item.nickname}}"
+          >
+            <text>踢出</text>
+          </view>
+        </view>
+      </block>
+    </scroll-view>
+  </view>
+
+  <!-- 快捷消息栏 - 放到最底部，不会被挡住 -->
+  <view class="quick-messages">
+    <view 
+      wx:for="{{quickMessages}}" 
+      wx:key="id" 
+      wx:for-item="msg"
+      class="msg-btn"
+      catchtap="sendQuickMessage"
+      data-msg="{{msg.text}}"
+    >
+      <text>{{msg.text}}</text>
+    </view>
+    <view class="msg-btn more" catchtap="showMoreMessages">
+      <text>更多</text>
+    </view>
+  </view>
+
+  <!-- 更多消息弹窗 -->
+  <view class="modal-mask {{showMsgModal ? 'show' : ''}}" catchtap="closeMsgModal"></view>
+  <view class="msg-modal {{showMsgModal ? 'show' : ''}}">
+    <view class="modal-header">
+      <text>快捷消息</text>
+      <view class="close" catchtap="closeMsgModal">✕</view>
+    </view>
+    <view class="msg-list">
+      <view 
+        wx:for="{{allMessages}}" 
+        wx:key="id"
+        class="msg-item"
+        catchtap="sendQuickMessage"
+        data-msg="{{item.text}}"
+      >
+        <text>{{item.text}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 邀请二维码弹窗 -->
+  <view class="modal-mask {{showQrModal ? 'show' : ''}}" catchtap="hideInviteQrCode">
+    <view class="qr-modal" catchtap="noop">
+      <view class="qr-header">
+        <text class="qr-title">邀请加入队伍</text>
+        <text class="qr-close" catchtap="hideInviteQrCode">✕</text>
+      </view>
+      <view class="qr-content">
+        <view class="qr-team-name">{{team.teamName}}</view>
+        <view class="qr-team-desc">已有 {{team.memberCount || 0}}/{{team.maxMembers || 10}} 人加入</view>
+        <canvas 
+          canvas-id="teamQr" 
+          type="2d"
+          class="qr-canvas"
+        ></canvas>
+        <view class="qr-hint">扫码加入队伍</view>
+        <button class="btn-save-qr" bindtap="saveQrCodeToAlbum">保存二维码到相册</button>
+      </view>
+    </view>
+  </view>
+</view>

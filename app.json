@@ -1,0 +1,55 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/team/team",
+    "pages/profile/profile",
+    "pages/activity-list/activity-list",
+    "pages/activity-detail/activity-detail",
+    "pages/team-detail/team-detail"
+  ],
+  "requiredPrivateInfos": [
+    "getLocation",
+    "startLocationUpdate",
+    "startLocationUpdateBackground",
+    "onLocationChange"
+  ],
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于记录划行轨迹"
+    },
+    "scope.userLocationBackground": {
+      "desc": "退后台时继续记录轨迹"
+    }
+  },
+  "window": {
+    "navigationBarBackgroundColor": "#0066CC",
+    "navigationBarTitleText": "蓝旅",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#F5F9FC"
+  },
+  "tabBar": {
+    "color": "#666666",
+    "selectedColor": "#0066CC",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "记录",
+        "iconPath": "images/icons/track.png",
+        "selectedIconPath": "images/icons/track-active.png"
+      },
+      {
+        "pagePath": "pages/team/team",
+        "text": "组队",
+        "iconPath": "images/icons/team-tab.png",
+        "selectedIconPath": "images/icons/team-tab-active.png"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的",
+        "iconPath": "images/icons/user.png",
+        "selectedIconPath": "images/icons/user-active.png"
+      }
+    ]
+  }
+}

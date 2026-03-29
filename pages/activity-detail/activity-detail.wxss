@@ -1,0 +1,182 @@
+/* pages/activity-detail/activity-detail.wxss */
+page {
+  height: 100%;
+  background: #F5F9FC;
+}
+
+.page-activity-detail {
+  height: 100%;
+  position: relative;
+}
+
+/* 地图容器 - 根据抽屉状态动态调整高度 */
+.map-container {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  transition: height 0.3s ease;
+}
+
+.map-container.map-short {
+  height: 50%;
+}
+
+/* 活动数据抽屉面板 */
+.activity-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-radius: 48rpx 48rpx 0 0;
+  z-index: 30;
+  transition: height 0.3s ease;
+  height: calc(150rpx + env(safe-area-inset-bottom));
+  box-shadow: 0 -8rpx 32rpx rgba(0, 0, 0, 0.1);
+}
+
+.activity-panel.show {
+  height: calc(70% + 150rpx + env(safe-area-inset-bottom));
+}
+
+/* 抽屉把手 */
+.panel-handle {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 32rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.handle-bar {
+  width: 80rpx;
+  height: 8rpx;
+  background: #ddd;
+  border-radius: 4rpx;
+  margin-right: 24rpx;
+}
+
+.handle-info {
+  flex: 1;
+}
+
+.handle-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #1a1a1a;
+  display: block;
+}
+
+.handle-date {
+  font-size: 24rpx;
+  color: #666;
+  margin-top: 4rpx;
+  display: block;
+}
+
+.handle-toggle {
+  font-size: 26rpx;
+  color: #0066cc;
+}
+
+/* 抽屉内容 */
+.panel-content {
+  padding: 32rpx;
+  height: 50%;
+  box-sizing: border-box;
+}
+
+/* 数据网格 */
+.data-grid {
+  display: flex;
+  gap: 24rpx;
+  margin-bottom: 32rpx;
+}
+
+.data-item {
+  flex: 1;
+  background: #F5F9FC;
+  border-radius: 24rpx;
+  padding: 30rpx;
+  text-align: center;
+}
+
+.data-icon-wrapper {
+  margin-bottom: 12rpx;
+}
+
+.data-icon {
+  font-size: 32rpx;
+}
+
+.data-label {
+  display: block;
+  font-size: 24rpx;
+  color: #666;
+  margin-bottom: 8rpx;
+}
+
+.data-value {
+  display: block;
+  font-size: 48rpx;
+  font-weight: bold;
+  color: #1a1a1a;
+}
+
+/* 附加数据 */
+.data-extra {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 24rpx;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.extra-item {
+  flex: 1;
+  text-align: center;
+}
+
+.extra-label {
+  display: block;
+  font-size: 24rpx;
+  color: #999;
+  margin-bottom: 8rpx;
+}
+
+.extra-value {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+/* 分享按钮 */
+.share-btn {
+  width: 100%;
+  height: 96rpx;
+  background: linear-gradient(135deg, #FF8C42, #FFA566);
+  border-radius: 48rpx;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  box-shadow: 0 8rpx 24rpx rgba(255, 140, 66, 0.3);
+  margin-top: 32rpx;
+}
+
+.share-btn .btn-icon {
+  font-size: 36rpx;
+  color: #fff;
+}
+
+.share-btn text {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #fff;
+}
+
+.share-btn::after {
+  border: none;
+}

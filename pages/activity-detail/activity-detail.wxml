@@ -1,0 +1,68 @@
+<!-- pages/activity-detail/activity-detail.wxml -->
+<view class="page-activity-detail">
+  <!-- 地图区域（根据抽屉状态调整高度） -->
+  <map 
+    id="detailMap"
+    class="map-container {{showPanel ? 'map-short' : ''}}"
+    latitude="{{latitude}}"
+    longitude="{{longitude}}"
+    scale="14"
+    polyline="{{polylines}}"
+    markers="{{markers}}"
+    show-location
+    subkey="{{subKey}}"
+    enable-rotate="false"
+  ></map>
+
+  <!-- 活动数据抽屉面板 -->
+  <view class="activity-panel {{showPanel ? 'show' : ''}}">
+    <!-- 拖动把手 + 标题信息 -->
+    <view class="panel-handle" catchtap="togglePanel">
+      <view class="handle-bar"></view>
+      <view class="handle-info">
+        <text class="handle-title">{{activity.title || '划行活动'}}</text>
+        <text class="handle-date">{{activity.createTimeFormatted || '未知时间'}}</text>
+      </view>
+      <text class="handle-toggle">{{showPanel ? '收起详情' : '查看详情'}}</text>
+    </view>
+    
+    <!-- 抽屉内容：数据网格 -->
+    <scroll-view class="panel-content" scroll-y="{{true}}">
+      <!-- 核心数据网格 -->
+      <view class="data-grid">
+        <view class="data-item">
+          <view class="data-icon-wrapper">
+            <text class="data-icon">📍</text>
+          </view>
+          <text class="data-label">距离 (km)</text>
+          <text class="data-value">{{stats.distance}}</text>
+        </view>
+        <view class="data-item">
+          <view class="data-icon-wrapper">
+            <text class="data-icon">⏱</text>
+          </view>
+          <text class="data-label">用时</text>
+          <text class="data-value">{{stats.duration}}</text>
+        </view>
+      </view>
+
+      <!-- 附加数据 -->
+      <view class="data-extra">
+        <view class="extra-item">
+          <text class="extra-label">平均速度</text>
+          <text class="extra-value">{{stats.avgSpeed}} km/h</text>
+        </view>
+        <view class="extra-item">
+          <text class="extra-label">最高速度</text>
+          <text class="extra-value">{{stats.maxSpeed}} km/h</text>
+        </view>
+      </view>
+      
+      <!-- 分享按钮 -->
+      <button class="share-btn" open-type="share">
+        <text class="btn-icon">↗</text>
+        分享轨迹
+      </button>
+    </scroll-view>
+  </view>
+</view>

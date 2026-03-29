@@ -1,0 +1,423 @@
+/* pages/team-detail/team-detail.wxss */
+page {
+  height: 100% !important;
+  background: #f5f9fc;
+}
+
+.container {
+  height: 100% !important;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 地图 - 高度根据抽屉状态动态变化 */
+.map {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  transition: height 0.3s ease;
+  z-index: 10;
+  background: #f5f9fc;
+}
+/* 抽屉展开时地图高度缩小到50% */
+.map.map-short {
+  height: 50% !important;
+}
+
+/* 队伍信息放在拖动手柄内 */
+.drag-handle .team-info {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 8rpx;
+}
+
+.drag-handle .team-name {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #1a1a1a;
+}
+
+.drag-handle .member-count {
+  font-size: 26rpx;
+  color: #0066CC;
+  background: rgba(0, 102, 204, 0.1);
+  padding: 6rpx 16rpx;
+  border-radius: 20rpx;
+}
+
+.msg-btn {
+  padding: 10rpx 18rpx;
+  background: #fff;
+  border-radius: 32rpx;
+  font-size: 24rpx;
+  color: #333;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
+}
+
+/* 快捷消息栏 - 在队员面板内部底部，只占用一行高度 */
+.quick-messages {
+  position: absolute;
+  bottom: 20rpx;
+  left: 20rpx;
+  right: 20rpx;
+  display: flex;
+  gap: 12rpx;
+  overflow-x: auto;
+  z-index: 25;
+  padding-bottom: 0;
+  /* 高度刚好容纳一行 */
+  height: 70rpx;
+  align-items: center;
+}
+
+.msg-btn.more {
+  background: rgba(0, 102, 204, 0.1);
+  color: #0066CC;
+}
+
+/* 底部拖动把手 */
+.drag-handle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16rpx 24rpx 16rpx;
+}
+
+.drag-bar {
+  width: 80rpx;
+  height: 8rpx;
+  background: #ddd;
+  border-radius: 4rpx;
+  margin-bottom: 12rpx;
+}
+
+.drag-text {
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 4rpx;
+}
+
+/* 行程状态栏 */
+.journey-status {
+  padding: 16rpx 24rpx 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.status-text {
+  font-size: 26rpx;
+  color: #666;
+  flex: 1;
+}
+
+.status-actions {
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+
+.status-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 8rpx;
+  align-items: center;
+  margin-left: 16rpx;
+}
+
+.status-actions button {
+  margin: 0;
+  border-radius: 40rpx;
+  font-size: 26rpx;
+  padding: 12rpx 24rpx;
+  line-height: 1;
+  border: none;
+}
+
+.btn-share {
+  background: #52c41a;
+  color: #fff;
+}
+
+.btn-start {
+  background: #0066CC;
+  color: #fff;
+}
+
+.btn-end {
+  background: #ff4d4f;
+  color: #fff;
+}
+
+/* 队员面板（抽屉） */
+.member-panel {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  /* 收起时保留把手高度 + 快捷消息高度 = 让拖动手柄和快捷消息永远可见 */
+  height: calc(100rpx + 90rpx + env(safe-area-inset-bottom));
+  background: #fff;
+  border-radius: 40rpx 40rpx 0 0;
+  z-index: 20;
+  transition: height 0.3s ease;
+  overflow: hidden;
+  box-shadow: 0 -8rpx 32rpx rgba(0, 0, 0, 0.1);
+}
+
+.member-panel.show {
+  /* 展开时限制在50%高度 */
+  height: calc(50% + 90rpx + env(safe-area-inset-bottom));
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 32rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.panel-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #1a1a1a;
+}
+
+.close-btn {
+  font-size: 36rpx;
+  color: #999;
+  padding: 8rpx;
+}
+
+.member-list {
+  /* 减去把手高度 + 底部快捷消息高度 */
+  height: calc(100% - 100rpx - 90rpx);
+  padding: 0 24rpx 24rpx;
+  box-sizing: border-box;
+}
+
+.member-card {
+  display: flex;
+  align-items: center;
+  padding: 24rpx;
+  background: #f8f8f8;
+  border-radius: 20rpx;
+  margin-bottom: 16rpx;
+  flex-wrap: wrap;
+}
+
+.member-card.self {
+  background: rgba(0, 102, 204, 0.08);
+  border: 2rpx solid rgba(0, 102, 204, 0.2);
+}
+
+.member-avatar {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+
+.member-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.member-name {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.member-role {
+  font-size: 22rpx;
+  color: #fff;
+  background: #0066CC;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+}
+
+.member-time {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.kick-btn {
+  padding: 10rpx 20rpx;
+  background: #ff4d4f;
+  border-radius: 10rpx;
+  margin-left: 16rpx;
+  z-index: 100;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kick-btn text {
+  font-size: 24rpx;
+  color: #fff;
+  font-weight: bold;
+}
+
+/* 消息弹窗 & 二维码弹窗 遮罩 */
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  display: none;
+}
+
+.modal-mask.show {
+  display: block;
+}
+
+.msg-modal {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #fff;
+  border-radius: 32rpx 32rpx 0 0;
+  z-index: 101;
+  transform: translateY(100%);
+  transition: transform 0.3s;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.msg-modal.show {
+  transform: translateY(0);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 32rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.modal-header text {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #1a1a1a;
+}
+
+.close {
+  font-size: 36rpx;
+  color: #999;
+  padding: 8rpx;
+}
+
+.msg-list {
+  padding: 16rpx 24rpx;
+  overflow-y: auto;
+}
+
+.msg-item {
+  padding: 24rpx;
+  background: #f5f5f5;
+  border-radius: 16rpx;
+  margin-bottom: 16rpx;
+  font-size: 28rpx;
+  color: #333;
+}
+
+/* 邀请二维码弹窗 */
+.qr-modal {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 600rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  z-index: 1001;
+  overflow: hidden;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.2);
+}
+
+.qr-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 32rpx 32rpx 24rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.qr-title {
+  font-size: 34rpx;
+  font-weight: bold;
+  color: #1a1a1a;
+}
+
+.qr-close {
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36rpx;
+  color: #999;
+}
+
+.qr-content {
+  padding: 32rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.qr-team-name {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #1a1a1a;
+  margin-bottom: 8rpx;
+}
+
+.qr-team-desc {
+  font-size: 26rpx;
+  color: #666;
+  margin-bottom: 24rpx;
+}
+
+.qr-canvas {
+  width: 360rpx;
+  height: 360rpx;
+  background: #fff;
+}
+
+.qr-hint {
+  font-size: 26rpx;
+  color: #999;
+  margin-top: 16rpx;
+  margin-bottom: 24rpx;
+}
+
+.btn-save-qr {
+  width: 100%;
+  background: linear-gradient(135deg, #52c41a 0%, #73d941 100%);
+  color: #fff;
+  border-radius: 48rpx;
+  font-size: 30rpx;
+  font-weight: bold;
+  padding: 20rpx 0;
+  line-height: 1;
+  border: none;
+}

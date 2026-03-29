@@ -1,0 +1,215 @@
+/* pages/activity-list/activity-list.wxss */
+page {
+  background: #F5F9FC;
+}
+
+.page-activity-list {
+  min-height: 100vh;
+  padding-bottom: 40rpx;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 40rpx;
+}
+
+.header-left, .header-right {
+  width: 80rpx;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-left .icon {
+  font-size: 40rpx;
+  color: #1A1A1A;
+}
+
+.header-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #1A1A1A;
+}
+
+/* 过滤器 */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 30rpx 40rpx;
+  background: transparent;
+}
+
+.filter-label {
+  font-size: 26rpx;
+  color: #666;
+  font-weight: 500;
+}
+
+.filter-label-suffix {
+  font-size: 24rpx;
+  color: #999;
+}
+
+/* 活动列表 */
+.activity-list {
+  padding: 20rpx 30rpx;
+}
+
+.activity-card {
+  position: relative;
+  min-height: 300rpx;
+  border-radius: 48rpx;
+  overflow: hidden;
+  margin-bottom: 24rpx;
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.activity-card:active {
+  transform: scale(0.98);
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+}
+
+.activity-card.short-trip {
+  opacity: 1;
+}
+
+.activity-card.hidden-card {
+  opacity: 0;
+  height: 0;
+  margin: 0;
+  transform: scale(0.95);
+}
+
+/* SVG 轨迹背景 */
+.card-bg-svg {
+  position: absolute;
+  inset: 0;
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.svg-container {
+  width: 100%;
+  height: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 140' preserveAspectRatio='none'%3E%3Cpath d='M-10,100 C50,80 100,120 150,60 C200,0 250,90 310,40' fill='none' stroke='%230066CC' stroke-width='3' stroke-linecap='round' stroke-dasharray='6 6'/%3E%3C/svg%3E");
+  background-size: cover;
+  background-position: center;
+}
+
+/* 卡片内容 */
+.card-content {
+  position: relative;
+  z-index: 10;
+  padding: 32rpx;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16rpx;
+}
+
+.card-date {
+  font-size: 26rpx;
+  color: #666;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 10rpx 20rpx;
+  border-radius: 12rpx;
+  backdrop-filter: blur(8rpx);
+  line-height: 1.3;
+}
+
+.card-actions {
+  display: flex;
+  gap: 16rpx;
+}
+
+.action-btn {
+  width: 64rpx;
+  height: 64rpx;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8rpx);
+}
+
+.action-icon {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+.action-btn.share .action-icon {
+  tint-color: #0066CC;
+}
+
+.card-body {
+  margin-top: auto;
+  padding-top: 28rpx;
+}
+
+.card-name {
+  display: block;
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #1A1A1A;
+  margin-bottom: 20rpx;
+  line-height: 1.4;
+}
+
+.card-stats {
+  display: flex;
+  align-items: baseline;
+  gap: 32rpx;
+}
+
+.stat-value {
+  font-size: 56rpx;
+  font-weight: bold;
+  font-family: 'Inter', -apple-system, sans-serif;
+  line-height: 1;
+}
+
+.stat-value.primary {
+  color: #0066CC;
+}
+
+.stat-value.accent {
+  color: #FF8C42;
+}
+
+.stat-time {
+  font-size: 32rpx;
+  color: #666;
+  font-family: 'Inter', -apple-system, sans-serif;
+  line-height: 1.2;
+}
+
+/* 空状态 */
+.empty {
+  text-align: center;
+  padding: 120rpx 0;
+}
+
+.empty-text {
+  display: block;
+  font-size: 32rpx;
+  color: #999;
+  margin-bottom: 16rpx;
+}
+
+.empty-hint {
+  display: block;
+  font-size: 26rpx;
+  color: #CCC;
+}

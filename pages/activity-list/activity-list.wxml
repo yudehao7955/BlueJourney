@@ -1,0 +1,54 @@
+<!--pages/activity-list/activity-list.wxml-->
+<view class="page-activity-list">
+  <!-- 过滤器 -->
+  <view class="filter-bar">
+    <text class="filter-label">隐藏短行程（小于200m）</text>
+    <switch color="#0066CC" checked="{{hideShort}}" bindchange="toggleShortTrips"/>
+  </view>
+
+  <!-- 活动列表 -->
+  <view class="activity-list">
+    <block wx:for="{{filteredActivities}}" wx:key="_id">
+      <view class="activity-card {{item.totalDistance < 200 ? 'short-trip' : ''}}" 
+            data-id="{{item._id}}" 
+            bindtap="gotoDetail"
+            style="background: linear-gradient(135deg, {{item.totalDistance >= 200 ? '#EEF2FF' : '#FFF7ED'}}, {{item.totalDistance >= 200 ? '#E0E7FF' : '#FFEDD5'}})">
+        
+        <!-- SVG 轨迹背景 -->
+        <view class="card-bg-svg">
+          <view class="svg-container"></view>
+        </view>
+        
+        <view class="card-content">
+          <!-- 顶部：日期 + 操作按钮 -->
+          <view class="card-header">
+            <text class="card-date">{{item.createTimeFormatted}}</text>
+            <view class="card-actions">
+              <view class="action-btn share" catchtap="shareActivity" data-id="{{item._id}}">
+                <image class="action-icon" src="/images/icons/share.png"></image>
+              </view>
+              <view class="action-btn delete" catchtap="deleteActivity" data-id="{{item._id}}">
+                <image class="action-icon" src="/images/icons/delete.png"></image>
+              </view>
+            </view>
+          </view>
+          
+          <!-- 底部：标题 + 统计 -->
+          <view class="card-body">
+            <text class="card-name">{{item.title || '划行活动'}}</text>
+            <view class="card-stats">
+              <text class="stat-value {{item.totalDistance >= 200 ? 'primary' : 'accent'}}">{{item.distanceKm}} km</text>
+              <text class="stat-time">{{item.durationFormatted}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <!-- 空状态 -->
+    <view wx:if="{{filteredActivities.length === 0}}" class="empty">
+      <text class="empty-text">暂无活动记录</text>
+      <text class="empty-hint">开始你的第一次划行吧！</text>
+    </view>
+  </view>
+</view>

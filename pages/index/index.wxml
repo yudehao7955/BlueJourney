@@ -1,0 +1,105 @@
+<!--pages/index/index.wxml-->
+<view class="container">
+  <!-- 地图区域 -->
+  <map 
+    id="myMap"
+    class="map"
+    latitude="{{latitude}}" 
+    longitude="{{longitude}}"
+    scale="{{scale}}"
+    markers="{{markers}}"
+    polyline="{{polylines}}"
+    subkey="{{subKey}}"
+    show-location
+    enable-zoom="true"
+    enable-scroll="true"
+    enable-rotate="{{enableRotate}}"
+    enable-satellite="{{enableSatellite}}"
+    bindmarkertap="onMarkerTap"
+    bindcontroltap="onControlTap"
+  ></map>
+
+  <!-- 顶部左侧用户卡片 -->
+  <view class="top-left-card">
+    <view class="user-card">
+      <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+        <image class="avatar" src="{{userInfo.avatarUrl || '/images/user.png'}}" mode="cover"></image>
+      </button>
+      <view class="user-text">
+        <text class="greeting">早上好，</text>
+        <text class="nickname">{{userInfo.nickName || '请登录'}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 顶部右侧天气卡片 -->
+  <view class="top-right-card">
+    <text class="weather-icon">☀️</text>
+    <text class="weather-temp">26°C</text>
+  </view>
+
+  <!-- 右侧悬浮工具栏 -->
+  <view class="right-tools">
+    <view class="tool-btn" bindtap="goToTeam">
+      <image class="tool-icon" src="/images/icons/team.png"></image>
+    </view>
+    <view class="tool-btn" bindtap="moveToLocation">
+      <image class="tool-icon" src="/images/icons/location.png"></image>
+    </view>
+    <view class="tool-btn" bindtap="toggleSatellite">
+      <image class="tool-icon" src="/images/icons/layer.png"></image>
+    </view>
+  </view>
+
+  <!-- 当前位置标记 -->
+  <view class="location-marker">
+    <view class="marker-pulse"></view>
+    <view class="marker-dot"></view>
+  </view>
+
+  <!-- 底部控制面板 -->
+  <view class="bottom-panel">
+    <view class="data-card">
+      <!-- 数据展示区 -->
+      <view class="data-display">
+        <view class="data-item">
+          <text class="data-label">距离 (km)</text>
+          <text class="data-value">{{currentDistance}}</text>
+        </view>
+        <view class="data-divider"></view>
+        <view class="data-item">
+          <text class="data-label">用时</text>
+          <text class="data-value">{{currentDuration}}</text>
+        </view>
+        <view class="data-divider"></view>
+        <view class="data-item">
+          <text class="data-label">速度 (km/h)</text>
+          <text class="data-value">{{currentSpeed}}</text>
+        </view>
+      </view>
+
+      <!-- 控制按钮区 -->
+      <view class="control-area">
+        <button 
+          wx:if="{{!isRecording}}" 
+          class="start-btn" 
+          bindtap="startRecording"
+        >
+          <text class="btn-icon">▶</text>
+          <text>开始划行</text>
+        </button>
+        
+        <view wx:else class="control-btns">
+          <button class="pause-btn {{isPaused ? '' : 'active'}}" bindtap="pauseRecording">
+            <text class="btn-icon">{{isPaused ? '▶' : '⏸'}}</text>
+            <text>{{isPaused ? '继续' : '暂停'}}</text>
+          </button>
+          <button class="stop-btn" bindtap="stopRecording">
+            <text class="btn-icon">■</text>
+            <text>结束</text>
+          </button>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

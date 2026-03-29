@@ -1,0 +1,86 @@
+<!--pages/profile/profile.wxml-->
+<view class="container">
+  <!-- 头部背景 -->
+  <view class="header-bg">
+    <view class="wave-decoration"></view>
+  </view>
+
+  <!-- 用户信息区域 -->
+  <view class="profile-header">
+    <view class="avatar-wrapper">
+      <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+        <image class="avatar" src="{{userInfo.avatarUrl || '/images/user.png'}}" mode="cover"></image>
+        <view class="edit-icon">✏️</view>
+      </button>
+    </view>
+    <view class="user-info">
+      <text class="nickname">{{userInfo.nickname || '请设置昵称'}}</text>
+      <text class="user-id">ID: {{userInfo.openid ? userInfo.openid.slice(-4) : '----'}}</text>
+    </view>
+  </view>
+
+  <!-- 统计数据卡片 -->
+  <view class="stats-card">
+    <view class="stat-item">
+      <text class="stat-value">{{stats.totalDistance}}</text>
+      <text class="stat-label">总里程 (km)</text>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-item">
+      <text class="stat-value">{{stats.totalTime}}</text>
+      <text class="stat-label">总时长 (h)</text>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-item">
+      <text class="stat-value">{{stats.totalActivities}}</text>
+      <text class="stat-label">活动次数</text>
+    </view>
+  </view>
+
+  <!-- 功能列表 -->
+  <view class="menu-section">
+    <view class="menu-item" bindtap="viewActivities">
+      <view class="menu-icon bg-blue">
+        <image class="menu-icon-img" src="/images/icons/activity.png"></image>
+      </view>
+      <view class="menu-content">
+        <text class="menu-title">我的活动</text>
+      </view>
+      <text class="menu-arrow">></text>
+    </view>
+
+    <view class="menu-item" bindtap="viewAchievements">
+      <view class="menu-icon bg-orange">
+        <image class="menu-icon-img" src="/images/icons/trophy.png"></image>
+      </view>
+      <view class="menu-content">
+        <text class="menu-title">成就墙</text>
+        <text class="menu-desc">已解锁 5 个</text>
+      </view>
+      <text class="menu-arrow">></text>
+    </view>
+
+    <view class="menu-item" bindtap="viewSettings">
+      <view class="menu-icon bg-gray">
+        <image class="menu-icon-img" src="/images/icons/settings.png"></image>
+      </view>
+      <view class="menu-content">
+        <text class="menu-title">设置</text>
+      </view>
+      <text class="menu-arrow">></text>
+    </view>
+  </view>
+
+  <!-- 底部功能 -->
+  <view class="bottom-section">
+    <view class="menu-item" bindtap="viewHelp">
+      <view class="menu-icon bg-green">
+        <image class="menu-icon-img" src="/images/icons/help.png"></image>
+      </view>
+      <view class="menu-content">
+        <text class="menu-title">帮助与反馈</text>
+      </view>
+      <text class="menu-arrow">></text>
+    </view>
+  </view>
+</view>

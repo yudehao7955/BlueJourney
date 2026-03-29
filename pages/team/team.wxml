@@ -1,0 +1,127 @@
+<!--pages/team/team.wxml-->
+<view class="container">
+
+
+  <!-- Tab切换 -->
+  <view class="tab-wrapper">
+    <view 
+      class="tab-item {{activeTab === 'my' ? 'active' : ''}}" 
+      bindtap="switchTab" 
+      data-tab="my"
+    >
+      我的队伍
+    </view>
+    <view 
+      class="tab-item {{activeTab === 'nearby' ? 'active' : ''}}" 
+      bindtap="switchTab" 
+      data-tab="nearby"
+    >
+      附近队伍
+    </view>
+  </view>
+
+  <!-- 队伍列表 -->
+  <scroll-view class="team-list" scroll-y="{{true}}">
+    <block wx:for="{{teams}}" wx:key="_id">
+      <view class="team-card" bindtap="viewTeamDetail" data-id="{{item._id}}">
+        <!-- 队伍信息 -->
+        <view class="team-info-card">
+          <text class="team-name">{{item.teamName}}</text>
+          <view class="team-meta">
+            <text class="creator">创建者: {{item.creatorNickname}}</text>
+            <text class="member-count">{{item.memberCount || 0}}/{{item.maxMembers || 10}} 人</text>
+          </view>
+          <view wx:if="{{item.description}}" class="team-desc">{{item.description}}</view>
+        </view>
+
+        <!-- 队员头像堆叠 - 队长完整信息，其他人只显示头像 -->
+        <view class="members-avatars">
+          <!-- 队长 -->
+          <block wx:for="{{item.members}}" wx:for-item="member" wx:for-index="idx" wx:key="openid">
+            <block wx:if="{{member.role === 'leader'}}">
+              <view class="leader-item">
+                <image class="avatar-lg" src="{{member.avatarUrl || '/images/user.png'}}" mode="aspectFill"></image>
+                <view class="leader-info">
+                  <text class="leader-name">{{member.nickname}}</text>
+                  <text class="leader-role">队长</text>
+                </view>
+              </view>
+            </block>
+          </block>
+          <!-- 其他队员 - 只显示头像堆叠在右边 -->
+          <view class="other-avatars">
+            <block wx:for="{{item.members}}" wx:for-item="member" wx:for-index="idx" wx:key="openid">
+              <image 
+                wx:if="{{member.role !== 'leader'}}" 
+                class="avatar-sm" 
+                src="{{member.avatarUrl || '/images/user.png'}}" 
+                mode="aspectFill"
+              ></image>
+            </block>
+          </view>
+        </view>
+
+        <!-- 操作按钮 - 分开显示：解散 vs 离开 -->
+        <view class="team-actions">
+          <view wx:if="{{activeTab === 'nearby'}}" class="action-btn primary" catchtap="joinTeam" data-id="{{item._id}}">
+            <text>加入队伍</text>
+          </view>
+          
+          <!-- 解散队伍按钮：仅队长可见 -->
+          <view wx:if="{{activeTab === 'my' && item.creatorOpenid === currentOpenid}}" class="action-btn danger" catchtap="dissolveTeam" data-id="{{item._id}}">
+            <text>解散队伍</text>
+          </view>
+          
+          <!-- 离开队伍按钮：非队长可见 -->
+          <view wx:if="{{activeTab === 'my' && item.creatorOpenid !== currentOpenid}}" class="action-btn warning" catchtap="leaveTeam" data-id="{{item._id}}">
+            <text>离开队伍</text>
+          </view>
+          
+          <view class="action-btn invite" catchtap="shareTeam" data-id="{{item._id}}">
+            <text>邀请</text>
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <!-- 加载中 -->
+    <view wx:if="{{loading}}" class="loading">
+      <text>加载中...</text>
+    </view>
+
+    <!-- 空状态 -->
+    <view wx:if="{{!loading && teams.length === 0}}" class="empty-state">
+      <text class="empty-icon">👥</text>
+      <text class="empty-text">{{activeTab === 'my' ? '暂无我的队伍' : '附近暂无队伍'}}</text>
+      <text class="empty-hint">{{activeTab === 'my' ? '创建一个新队伍吧' : '扫码加入或创建一个新队伍吧'}}</text>
+    </view>
+  </scroll-view>
+
+  <!-- 底部悬浮 创建队伍按钮 -->
+  <view class="create-footer">
+    <button class="create-btn" bindtap="openCreateModal">创建新队伍</button>
+  </view>
+
+  <!-- 创建队伍弹窗 -->
+  <view class="modal-mask {{showCreateModal ? 'show' : ''}}" bindtap="closeCreateModal"></view>
+  <view class="modal-content {{showCreateModal ? 'show' : ''}}">
+    <view class="modal-header">
+      <text class="modal-title">创建队伍</text>
+      <view class="modal-close" bindtap="closeCreateModal">✕</view>
+    </view>
+    <view class="modal-body">
+      <view class="input-group">
+        <text class="input-label">队伍名称</text>
+        <input class="input-field" placeholder="请输入队伍名称" value="{{newTeamName}}" bindinput="onTeamNameInput" maxlength="20"/>
+      </view>
+      <view class="input-group">
+        <text class="input-label">队伍简介（选填）</text>
+        <textarea class="input-textarea" placeholder="简单介绍一下这个队伍" value="{{newTeamDesc}}" bindinput="onTeamDescInput" maxlength="100"/>
+      </view>
+    </view>
+    <view class="modal-footer">
+      <button class="modal-btn cancel" bindtap="closeCreateModal">取消</button>
+      <button class="modal-btn confirm" bindtap="confirmCreateTeam">创建</button>
+    </view>
+  </view>
+</view>
