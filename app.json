@@ -13,6 +13,7 @@
     "startLocationUpdateBackground",
     "onLocationChange"
   ],
+  "requiredBackgroundModes": ["location"],
   "permission": {
     "scope.userLocation": {
       "desc": "用于记录划行轨迹"
