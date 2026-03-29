@@ -97,6 +97,8 @@ Page({
   onLoad() {
     this.login()
     this.getLocation()
+    // 测试：加载模拟轨迹（测试完注释掉即可）
+    this.testLoadTrack()
   },
   onShow() {
     this.checkActiveActivity()
@@ -1018,6 +1020,32 @@ Page({
   },
   onMarkerTap() {},
   onControlTap() {},
+
+  // 计算统计数据
+  calculateStats(points) {
+    let totalDistance = 0, maxSpeed = 0, totalSpeed = 0, speedCount = 0
+
+    for (let i = 1; i < points.length; i++) {
+      totalDistance += calculateDistance(points[i - 1].latitude, points[i - 1].longitude, points[i].latitude, points[i].longitude)
+      if (points[i].speed > 0) {
+        maxSpeed = Math.max(maxSpeed, points[i].speed)
+        totalSpeed += points[i].speed
+        speedCount++
+      }
+    }
+
+    let duration = 0
+    if (points[0]?.timestamp && points[points.length - 1]?.timestamp) {
+      duration = new Date(points[points.length - 1].timestamp).getTime() - new Date(points[0].timestamp).getTime()
+    }
+
+    return {
+      distance: totalDistance / 1000,
+      duration: Math.floor(duration / 1000),
+      avgSpeed: speedCount > 0 ? (totalSpeed / speedCount) : 0,
+      maxSpeed: maxSpeed
+    }
+  },
 
   // 计算统计数据
   calculateStats(points) {
