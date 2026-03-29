@@ -483,61 +483,77 @@ Page({
     this.setData({ showQrModal: false })
   },
 
-  // 生成队伍邀请信息（显示在 canvas 上）
+  // 生成队伍邀请二维码
   generateTeamQrCode() {
     const that = this
     const teamId = this.data.teamId
-    const teamName = this.data.team?.teamName || '队伍'
+    const teamName = this.data.team?.teamName || '蓝旅队伍'
     if (!teamId) return
 
-
+    // 邀请链接 - 小程序二维码需要通过 wx.createQRCode 生成
+    const invitePath = `pages/team/team?teamId=${teamId}&action=join`
+    
     // 延迟绘制确保 canvas 已渲染
     setTimeout(() => {
-      const query = wx.createSelectorQuery()
-      query.select('#teamQr')
-        .fields({ node: true, size: true })
-        .exec((res) => {
-          if (!res[0] || !res[0].node) {
-            return
-          }
-
-          const canvas = res[0].node
-          const ctx = canvas.getContext('2d')
-          const size = that.data.qrSize || 200
-          const dpr = wx.getSystemInfoSync().pixelRatio || 2
-        
-          // 设置画布尺寸
-          canvas.width = size * dpr
-          canvas.height = size * dpr
-          ctx.scale(dpr, dpr)
-        
-          // 白色背景
-          ctx.fillStyle = '#ffffff'
-          ctx.fillRect(0, 0, size, size)
-        
-          // 绘制绿色边框
-          ctx.strokeStyle = '#52c41a'
-          ctx.lineWidth = 6
-          ctx.strokeRect(4, 4, size - 8, size - 8)
-        
-          // 绘制团队名称 (大字)
-          ctx.fillStyle = '#1a1a1a'
-          ctx.font = 'bold 24px sans-serif'
-          ctx.textAlign = 'center'
-          ctx.fillText(teamName, size / 2, size / 3)
-        
-          // 绘制提示
-          ctx.fillStyle = '#52c41a'
-          ctx.font = 'bold 18px sans-serif'
-          ctx.fillText('扫码加入', size / 2, size / 2 + 10)
-        
-          // 绘制团队 ID (小字)
-          ctx.fillStyle = '#999999'
-          ctx.font = '12px sans-serif'
-          ctx.fillText(teamId, size / 2, size * 0.75)
-        
-        })
+      // 使用微信官方接口生成二维码图片
+      wx.createQRCode({
+        canvasId: 'teamQr',
+        data: JSON.stringify({
+          type: 'teamInvite',
+          teamId: teamId,
+          appid: getApp().appid
+        }),
+        width: that.data.qrSize || 200,
+        success: () => {
+          console.log('[team-detail] 二维码生成成功')
+          // 在二维码上方绘制文字
+          that.drawQrText(teamName, teamId)
+        },
+        fail: (err) => {
+          console.error('[team-detail] 二维码生成失败', err)
+          wx.showToast({ title: '二维码生成失败', icon: 'none' })
+        }
+      })
     }, 200)
+  },
+
+  // 在二维码上绘制文字说明
+  drawQrText(teamName, teamId) {
+    const that = this
+    const size = that.data.qrSize || 200
+    
+    const query = wx.createSelectorQuery()
+    query.select('#teamQr')
+      .fields({ node: true, size: true })
+      .exec((res) => {
+        if (!res[0] || !res[0].node) {
+          return
+        }
+
+        const canvas = res[0].node
+        const ctx = canvas.getContext('2d')
+        const dpr = wx.getSystemInfoSync().pixelRatio || 2
+        
+        canvas.width = size * dpr
+        ctx.scale(dpr, dpr)
+        
+        // 在顶部绘制队伍名称
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
+        ctx.fillRect(0, 0, size, 40)
+        
+        ctx.fillStyle = '#1a1a1a'
+        ctx.font = 'bold 14px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText(teamName, size / 2, 26)
+        
+        // 在底部绘制提示
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
+        ctx.fillRect(0, size - 30, size, 30)
+        
+        ctx.fillStyle = '#0066CC'
+        ctx.font = '12px sans-serif'
+        ctx.fillText('蓝旅 - 扫码加入队伍', size / 2, size - 10)
+      })
   },
 
   // 保存二维码到相册

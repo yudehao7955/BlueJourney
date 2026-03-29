@@ -198,29 +198,153 @@ async function getUserStats(openid) {
       }
     }
 
-    // 获取用户的活动统计
+    const userId = user.data[0]._id
+
+    // 获取用户的活动统计（只统计已结束的活动）
     const activities = await db.collection('activities').where({
-      userId: user.data[0]._id
+      userId: userId,
+      status: 2 // 只统计已结束
     }).get()
 
     let totalDistance = 0
     let totalTime = 0
 
     activities.data.forEach(activity => {
+      // totalDistance 已经是米单位
       totalDistance += activity.totalDistance || 0
+      // duration 已经是秒单位
       totalTime += activity.duration || 0
     })
 
     return {
       success: true,
       stats: {
-        totalDistance: (totalDistance / 1000).toFixed(1),  // 转换为公里
-        totalTime: (totalTime / 3600).toFixed(1),  // 转换为小时
+        totalDistance: Number((totalDistance / 1000).toFixed(1)),  // 转换为公里，保留 1 位小数
+        totalTime: Number((totalTime / 3600).toFixed(1)),  // 转换为小时，保留 1 位小数
         totalActivities: activities.data.length
       }
     }
   } catch (e) {
     return { success: false, error: e.message }
+  }
+}
+
+// 成就列表（定义所有可解锁的成就）
+const ALL_ACHIEVEMENTS = [
+  {
+    id: 'first_activity',
+    name: '初次启航',
+    desc: '完成你的第一次划行',
+    icon: '🚣',
+    condition: stats => stats.totalActivities >= 1
+  },
+  {
+    id: 'ten_km',
+    name: '十里春风',
+    desc: '累计划行 10 公里',
+    icon: '🌿',
+    condition: stats => stats.totalDistance >= 10
+  },
+  {
+    id: 'fifty_km',
+    name: '五十不惑',
+    desc: '累计划行 50 公里',
+    icon: '🌊',
+    condition: stats => stats.totalDistance >= 50
+  },
+  {
+    id: 'hundred_km',
+    name: '百里挑一',
+    desc: '累计划行 100 公里',
+    icon: '🏄',
+    condition: stats => stats.totalDistance >= 100
+  },
+  {
+    id: 'first_team',
+    name: '组队出发',
+    desc: '和小伙伴一起划一次',
+    icon: '👯',
+    condition: (stats, activities) => {
+      // 检查是否有 teamActivity
+      const hasTeamActivity = activities.data.some(a => a.isTeamActivity)
+      return hasTeamActivity
+    }
+  },
+  {
+    id: 'five_activities',
+    name: '桨不离手',
+    desc: '完成 5 次划行',
+    icon: '💪',
+    condition: stats => stats.totalActivities >= 5
+  },
+  {
+    id: 'ten_activities',
+    name: '水上达人',
+    desc: '完成 10 次划行',
+    icon: '🏆',
+    condition: stats => stats.totalActivities >= 10
+  },
+  {
+    id: 'one_hour',
+    name: '耐力新手',
+    desc: '累计划行 1 小时',
+    icon: '⏱️',
+    condition: stats => stats.totalTime >= 1
+  },
+  {
+    id: 'ten_hours',
+    name: '乘风破浪',
+    desc: '累计划行 10 小时',
+    icon: '💨',
+    condition: stats => stats.totalTime >= 10
+  }
+]
+
+// 自动检查并解锁成就
+async function autoCheckAchievements(userId, stats) {
+  try {
+    // 获取用户已解锁的成就
+    const existing = await db.collection('user_achievements')
+      .where({ userId })
+      .get()
+    
+    const existingIds = existing.data.map(a => a.achievementId)
+    const toUnlock = []
+
+    // 获取用户所有活动，检查条件
+    const activities = await db.collection('activities')
+      .where({ userId })
+      .get()
+    
+    // 检查每个成就
+    ALL_ACHIEVEMENTS.forEach(ach => {
+      if (!existingIds.includes(ach.id)) {
+        let unlocked = false
+        if (typeof ach.condition === 'function') {
+          unlocked = ach.condition(stats, activities)
+        }
+        if (unlocked) {
+          toUnlock.push({
+            userId,
+            achievementId: ach.id,
+            name: ach.name,
+            desc: ach.desc,
+            icon: ach.icon,
+            unlockTime: db.serverDate()
+          })
+        }
+      }
+    })
+
+    // 批量插入新解锁的成就
+    for (const ach of toUnlock) {
+      await db.collection('user_achievements').add({ data: ach })
+    }
+
+    return toUnlock.length
+  } catch (e) {
+    console.error('autoCheckAchievements error', e)
+    return 0
   }
 }
 
@@ -235,15 +359,46 @@ async function getUserAchievements(openid) {
     if (!user.data || user.data.length === 0) {
       return { success: true, achievements: [] }
     }
+    const userId = user.data[0]._id
 
-    // 获取用户成就
-    const achievements = await db.collection('user_achievements').where({
-      userId: user.data[0]._id
-    }).get()
+    // 先自动检查解锁新成就
+    // 获取统计数据
+    const activities = await db.collection('activities').where({ userId }).get()
+    let totalDistance = 0
+    let totalTime = 0
+    activities.data.forEach(activity => {
+      totalDistance += activity.totalDistance || 0
+      totalTime += activity.duration || 0
+    })
+    const stats = {
+      totalDistance: (totalDistance / 1000), // 米转公里
+      totalTime: (totalTime / 3600), // 秒转小时
+      totalActivities: activities.data.length
+    }
+
+    // 自动检查解锁
+    await autoCheckAchievements(userId, stats)
+
+    // 获取用户所有成就（包括新解锁的）
+    const achievements = await db.collection('user_achievements')
+      .where({ userId })
+      .orderBy('unlockTime', 'desc')
+      .get()
+
+    // 填充完整信息
+    const result = achievements.data.map(a => {
+      const def = ALL_ACHIEVEMENTS.find(d => d.id === a.achievementId)
+      return {
+        ...a,
+        name: def?.name || a.name,
+        desc: def?.desc || a.desc,
+        icon: def?.icon || a.icon || '🏅'
+      }
+    })
 
     return {
       success: true,
-      achievements: achievements.data || []
+      achievements: result
     }
   } catch (e) {
     return { success: false, error: e.message }

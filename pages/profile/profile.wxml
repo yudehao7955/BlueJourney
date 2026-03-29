@@ -55,7 +55,7 @@
       </view>
       <view class="menu-content">
         <text class="menu-title">成就墙</text>
-        <text class="menu-desc">已解锁 5 个</text>
+        <text class="menu-desc">已解锁 {{achievements.length}} 个</text>
       </view>
       <text class="menu-arrow">></text>
     </view>

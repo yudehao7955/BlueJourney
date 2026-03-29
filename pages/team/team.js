@@ -10,8 +10,28 @@ Page({
     currentOpenid: ''
   },
 
-  onLoad() {
+  onLoad(options) {
     this.getCurrentUser()
+    // 处理二维码邀请：扫码进来直接加入队伍
+    if (options.teamId && options.action === 'join') {
+      setTimeout(() => {
+        wx.showModal({
+          title: '邀请加入队伍',
+          content: '确认要加入这个队伍吗？',
+          success: (res) => {
+            if (res.confirm) {
+              this.joinTeam({ currentTarget: { dataset: { id: options.teamId }}})
+              // 加入成功后跳转到队伍详情
+              setTimeout(() => {
+                wx.navigateTo({
+                  url: `/pages/team-detail/team-detail?teamId=${options.teamId}`
+                })
+              }, 1000)
+            }
+          }
+        })
+      }, 500) // 延迟等 getUser 完成
+    }
   },
 
   onShow() {
