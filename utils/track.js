@@ -17,17 +17,16 @@ function buildMapPolylines(points, opts = {}) {
   }
 
   // 确保每个点都有正确的经纬度属性
-  const coords = points.filter(p => 
-    typeof p.latitude === 'number' && 
-    typeof p.longitude === 'number' &&
+  // 兼容从云数据库读出时经纬度是字符串的情况
+  const coords = points.map(p => ({
+    latitude: Number(p.latitude),
+    longitude: Number(p.longitude)
+  })).filter(p => 
     !isNaN(p.latitude) && 
     !isNaN(p.longitude) &&
     p.latitude !== 0 && 
     p.longitude !== 0
-  ).map((p) => ({ 
-    latitude: Number(p.latitude), 
-    longitude: Number(p.longitude) 
-  }))
+  )
 
   console.log(`[buildMapPolylines] 输入点数 ${points.length}, 有效点数 ${coords.length}`)
 
