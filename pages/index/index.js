@@ -4,8 +4,34 @@ const AMAP_KEY = '4f3f05ab8fc35c293e54411675c241f1';
 const { buildMapPolylines } = require('../../utils/track.js')
 const { saveActiveTrackSession, clearActiveTrackSession } = require('../../utils/track-session.js')
 
+// 轨迹采集配置
+const CONFIG = {
+  MIN_ACCURACY: 300,       // 精度 < 300米才记录（放宽，海上GPS精度较差）
+  MIN_DISTANCE: 5,         // 距离 ≥ 5米记录（增大，减少静止点）
+  MIN_TIME_INTERVAL: 2000, // 每2秒强制记录一次（缩短）
+  MIN_SPEED: 0,             // 不过滤速度
+  MAX_SPEED: 55            // 速度 < 55 km/h（过滤异常跳点）
+}
+
 const CLOUD_SYNC_MIN_POINTS = 10
 const CLOUD_SYNC_INTERVAL_MS = 60 * 1000
+
+// 工具函数
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function formatDuration(ms) {
+  const seconds = Math.floor(ms / 1000)
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = seconds % 60
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+}
 
 Page({
   data: {
@@ -111,7 +137,8 @@ Page({
   },
   // 移动到当前位置
   moveToLocation() {
-    this.getLocation()
+    const mapCtx = wx.createMapContext('map', this)
+    mapCtx.moveToLocation()
   },
   // 切换卫星地图
   toggleSatellite() {
@@ -119,6 +146,43 @@ Page({
   },
   // 开始记录轨迹
   startRecording() {
+    const that = this
+    
+    // 先检查定位权限
+    wx.getSetting({
+      success: (settingRes) => {
+        if (!settingRes.authSetting['scope.userLocation']) {
+          // 未授权，请求授权
+          wx.authorize({
+            scope: 'scope.userLocation',
+            success: () => {
+              // 用户同意，开始获取位置
+              that.doStartRecording()
+            },
+            fail: () => {
+              // 用户拒绝，引导去设置页开启
+              wx.showModal({
+                title: '需要定位权限',
+                content: '记录轨迹需要定位权限，请在设置中开启',
+                confirmText: '去设置',
+                success: (res) => {
+                  if (res.confirm) {
+                    wx.openSetting()
+                  }
+                }
+              })
+            }
+          })
+        } else {
+          // 已授权，直接开始
+          that.doStartRecording()
+        }
+      }
+    })
+  },
+
+  // 实际开始记录
+  doStartRecording() {
     const that = this
     wx.getLocation({
       type: 'gcj02',
@@ -162,7 +226,16 @@ Page({
         })
       },
       fail: () => {
-        wx.showToast({ title: '需要定位权限', icon: 'none' })
+        wx.showModal({
+          title: '定位失败',
+          content: '无法获取当前位置，请检查是否开启定位权限',
+          confirmText: '去设置',
+          success: (res) => {
+            if (res.confirm) {
+              wx.openSetting()
+            }
+          }
+        })
       }
     })
   },
@@ -173,8 +246,9 @@ Page({
       const pauseEndTime = Date.now()
       const pauseDuration = pauseEndTime - this.data.pauseStartTime
       
-      // 累加总暂停时长
-      this.data.totalPauseTime += pauseDuration
+      // 累加总暂停时长（使用 setData 保证数据同步）
+      const totalPauseTime = this.data.totalPauseTime + pauseDuration
+      this.setData({ totalPauseTime: totalPauseTime })
       
       // 立即保存暂停结束记录
       wx.cloud.callFunction({
@@ -276,7 +350,7 @@ Page({
         }
         activeDuration = Math.max(0, activeDuration)
         this.setData({
-          currentDuration: this.formatDuration(activeDuration)
+          currentDuration: formatDuration(activeDuration)
         })
       }
     }, 1000)
@@ -299,18 +373,10 @@ Page({
     const trackPoints = this.data.trackPoints
     const lastPoint = trackPoints[trackPoints.length - 1]
     
-    // 海上桨板/皮划艇轨迹采集配置
-    const CONFIG = {
-      MIN_ACCURACY: 200,       // 精度 < 200米才记录（放宽，海上GPS精度较差）
-      MIN_DISTANCE: 2,         // 距离 ≥ 2米记录
-      MIN_TIME_INTERVAL: 3000, // 每3秒强制记录一次（缩短）
-      MIN_SPEED: 0,             // 不过滤速度
-      MAX_SPEED: 55            // 速度 < 55 km/h（过滤异常跳点）
-    }
-    
-    // 1. 精度过滤：精度大于200米的点不记录（accuracy越小越精确）
+    // 1. 精度过滤：精度大于CONFIG.MIN_ACCURACY米的点不记录（accuracy越小越精确）
     // 处理 accuracy 不存在的兼容情况
     if (res.accuracy !== undefined && res.accuracy > CONFIG.MIN_ACCURACY) {
+      console.log(`[index] 点被过滤：精度 ${res.accuracy} > ${CONFIG.MIN_ACCURACY}`)
       return
     }
     
@@ -328,7 +394,7 @@ Page({
     const timeInterval = now - lastRecordTime
     
     // 4. 计算移动距离
-    const distance = lastPoint ? this.calculateDistance(lastPoint.latitude, lastPoint.longitude, res.latitude, res.longitude) : 0
+    const distance = lastPoint ? calculateDistance(lastPoint.latitude, lastPoint.longitude, res.latitude, res.longitude) : 0
     
     // 5. 计算速度（优先用 GPS 速度，否则用距离计算）
     const speedKmh = res.speed > 0 ? res.speed * 3.6 : (distance / (timeInterval / 1000) * 3.6) || 0
@@ -344,6 +410,7 @@ Page({
         latitude: res.latitude,
         longitude: res.longitude
       })
+      console.log(`[index] 点被过滤：距离 ${distance.toFixed(1)}m < ${CONFIG.MIN_DISTANCE}m，时间 ${timeInterval}ms < ${CONFIG.MIN_TIME_INTERVAL}ms`)
       return
     }
 
@@ -353,6 +420,7 @@ Page({
         latitude: res.latitude,
         longitude: res.longitude
       })
+      console.log(`[index] 点被过滤：速度 ${speedKmh.toFixed(1)}km/h > ${CONFIG.MAX_SPEED}km/h`)
       return
     }
     
@@ -388,7 +456,7 @@ Page({
       longitude: res.longitude,
       currentDistance: (totalMeters / 1000).toFixed(2),
       currentSpeed: speedKmh.toFixed(1),
-      currentDuration: this.formatDuration(Math.max(0, activeDuration)),
+      currentDuration: formatDuration(Math.max(0, activeDuration)),
       polylines: polylines,
       // 固定起点标记，不跟随移动
       markers: newTrackPoints.length === 1 ? [{
@@ -671,7 +739,7 @@ Page({
       const pauseEndTime = Date.now()
       const pauseDuration = pauseStartTime ? pauseEndTime - pauseStartTime : 0
       
-      // 累加总暂停时长
+      // 累加总暂停时长（已通过 setData，保证数据同步）
       const totalPauseTime = this.data.totalPauseTime + pauseDuration
       
       this.setData({ 
@@ -729,6 +797,10 @@ Page({
                   trackPoints: trackRes.result.trackPoints
                 })
                 
+                // 重置增量同步计数（关键修复：恢复后 _cloudSyncedCount 需要与 trackPoints 长度一致）
+                this._cloudSyncedCount = trackRes.result.trackPoints.length
+                this._lastCloudSyncAt = Date.now()
+                
                 // 重新构建polylines显示
                 const polylines = buildMapPolylines(trackRes.result.trackPoints)
                 this.setData({
@@ -737,11 +809,11 @@ Page({
                 
                 // 计算统计数据
                 if (trackRes.result.trackPoints.length > 0) {
-                  const stats = calculateStats.call(this, trackRes.result.trackPoints)
+                  const stats = this.calculateStats(trackRes.result.trackPoints)
                   this.setData({
-                    currentDistance: stats.distance,
-                    currentSpeed: stats.avgSpeed,
-                    currentDuration: this.formatDuration(stats.duration * 1000)
+                    currentDistance: stats.distance.toFixed(2),
+                    currentSpeed: stats.avgSpeed.toFixed(1),
+                    currentDuration: formatDuration(stats.duration * 1000)
                   })
                   
                   // 地图中心移动到最后一个点
@@ -779,7 +851,7 @@ Page({
     let totalDistance = 0, maxSpeed = 0, totalSpeed = 0, speedCount = 0
 
     for (let i = 1; i < points.length; i++) {
-      totalDistance += this.calculateDistance(points[i - 1].latitude, points[i - 1].longitude, points[i].latitude, points[i].longitude)
+      totalDistance += calculateDistance(points[i - 1].latitude, points[i - 1].longitude, points[i].latitude, points[i].longitude)
       if (points[i].speed > 0) {
         maxSpeed = Math.max(maxSpeed, points[i].speed)
         totalSpeed += points[i].speed
@@ -798,23 +870,5 @@ Page({
       avgSpeed: speedCount > 0 ? (totalSpeed / speedCount) : 0,
       maxSpeed: maxSpeed
     }
-  },
-
-  // 计算两点距离（米）
-  calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371000
-    const dLat = (lat2 - lat1) * Math.PI / 180
-    const dLon = (lon2 - lon1) * Math.PI / 180
-    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  },
-
-  // 格式化时长
-  formatDuration(ms) {
-    const seconds = Math.floor(ms / 1000)
-    const h = Math.floor(seconds / 3600)
-    const m = Math.floor((seconds % 3600) / 60)
-    const s = seconds % 60
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
   }
 })
