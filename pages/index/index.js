@@ -789,46 +789,75 @@ Page({
   },
   // 检查进行中的活动
   checkActiveActivity() {
+    const that = this
     wx.cloud.callFunction({
       name: 'activity',
       data: { action: 'getActive' },
       success: (res) => {
         if (res.result?.activity) {
+          const activity = res.result.activity
+
+          // 如果活动已经结束（可能是队长在队伍中点击了结束行程），自动停止并保存
+          if (activity.status === 2) {
+            console.log('[index] 检测到当前活动已结束（队伍已结束行程），自动保存')
+            // 如果已经有记录点，保存轨迹后停止
+            if (activity._id) {
+              that.setData({ activityId: activity._id })
+              that._cloudSyncedCount = 0
+              // 获取轨迹点后保存
+              wx.cloud.callFunction({
+                name: 'activity',
+                data: { action: 'getTrackPoints', activityId: activity._id },
+                success: (trackRes) => {
+                  if (trackRes.result?.trackPoints) {
+                    that.setData({
+                      trackPoints: trackRes.result.trackPoints,
+                      isRecording: true
+                    })
+                    that.saveActivity() // 自动保存并停止
+                    wx.showToast({ title: '队伍行程已结束，轨迹已保存', icon: 'success' })
+                  }
+                }
+              })
+            }
+            return
+          }
           
+          // 活动仍在进行中，恢复状态
           // 恢复所有状态
-          this.setData({ 
-            currentActivity: res.result.activity, 
-            activityId: res.result.activity._id,
+          that.setData({ 
+            currentActivity: activity, 
+            activityId: activity._id,
             isRecording: true,
-            startTime: res.result.startTime ? new Date(res.result.startTime).getTime() : Date.now(),
-            totalPauseTime: res.result.totalPauseTime || 0,
-            isPaused: res.result.isPaused || false,
+            startTime: activity.startTime ? new Date(activity.startTime).getTime() : Date.now(),
+            totalPauseTime: activity.totalPauseTime || 0,
+            isPaused: activity.isPaused || false,
           })
           
           // 获取轨迹点，恢复地图显示
           wx.cloud.callFunction({
             name: 'activity',
-            data: { action: 'getTrackPoints', activityId: res.result.activity._id },
+            data: { action: 'getTrackPoints', activityId: activity._id },
             success: (trackRes) => {
               if (trackRes.result?.trackPoints) {
-                this.setData({
+                that.setData({
                   trackPoints: trackRes.result.trackPoints
                 })
                 
                 // 重置增量同步计数（关键修复：恢复后 _cloudSyncedCount 需要与 trackPoints 长度一致）
-                this._cloudSyncedCount = trackRes.result.trackPoints.length
-                this._lastCloudSyncAt = Date.now()
+                that._cloudSyncedCount = trackRes.result.trackPoints.length
+                that._lastCloudSyncAt = Date.now()
                 
                 // 重新构建polylines显示
                 const polylines = buildMapPolylines(trackRes.result.trackPoints)
-                this.setData({
+                that.setData({
                   polylines: polylines
                 })
                 
                 // 计算统计数据
                 if (trackRes.result.trackPoints.length > 0) {
-                  const stats = this.calculateStats(trackRes.result.trackPoints)
-                  this.setData({
+                  const stats = that.calculateStats(trackRes.result.trackPoints)
+                  that.setData({
                     currentDistance: stats.distance.toFixed(2),
                     currentSpeed: stats.avgSpeed.toFixed(1),
                     currentDuration: formatDuration(stats.duration * 1000)
@@ -836,7 +865,7 @@ Page({
                   
                   // 地图中心移动到最后一个点
                   const lastPoint = trackRes.result.trackPoints[trackRes.result.trackPoints.length - 1]
-                  this.setData({
+                  that.setData({
                     latitude: lastPoint.latitude,
                     longitude: lastPoint.longitude
                   })
@@ -846,16 +875,16 @@ Page({
           })
           
           // 重启位置采集和计时器
-          this.startLocationUpdate()
-          this.startTimer()
+          that.startLocationUpdate()
+          that.startTimer()
           
           // 恢复本地会话存储
           saveActiveTrackSession({
-            activityId: res.result.activity._id,
-            trackPoints: this.data.trackPoints,
-            startTime: this.data.startTime,
-            totalPauseTime: this.data.totalPauseTime,
-            isPaused: this.data.isPaused
+            activityId: activity._id,
+            trackPoints: that.data.trackPoints,
+            startTime: that.data.startTime,
+            totalPauseTime: that.data.totalPauseTime,
+            isPaused: that.data.isPaused
           })
         }
       }

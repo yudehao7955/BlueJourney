@@ -450,12 +450,8 @@ Page({
     wx.cloud.callFunction({
       name: 'team',
       data: {
-        action: 'update',
-        teamId: this.data.teamId,
-        data: {
-          status: 3, // 已结束
-          endTime: db.serverDate() // 这里云函数端会处理
-        }
+        action: 'endJourney',
+        teamId: this.data.teamId
       },
       success: (res) => {
         wx.hideLoading()

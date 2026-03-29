@@ -58,6 +58,10 @@ exports.main = async (event, context) => {
       case 'startJourney':
         return await startJourney(openid, event.teamId)
 
+      // 队长结束行程：全队停止记录，所有活动标记为结束
+      case 'endJourney':
+        return await endJourney(openid, event.teamId)
+
       default:
         return { success: false, error: '未知操作' }
     }
@@ -219,26 +223,46 @@ async function joinTeam(openid, teamId) {
       activityId: null
     }
     
-    // 如果队伍已经出发，需要为新队员创建活动
+    // 如果队伍已经出发，需要为新队员创建活动（优先复用用户当前进行中的活动）
     if (team.status === 2) { // 行进中
-      // 创建新活动
-      const activity = {
-        userId: user._id,
-        _openid: openid,
-        title: `${team.teamName} - 队伍行程`,
-        status: 1, // 1-进行中
-        teamId: teamId,
-        isTeamActivity: true,
-        createTime: db.serverDate(),
-        startTime: db.serverDate(),
-        totalDistance: 0,
-        duration: 0,
-        avgSpeed: 0,
-        maxSpeed: 0
-      }
+      // 先查找用户是否已有进行中的活动
+      const existingRes = await db.collection('activities')
+        .where({
+          _openid: openid,
+          status: 1 // 进行中
+        })
+        .limit(1)
+        .get()
       
-      const activityRes = await db.collection('activities').add({ data: activity })
-      newMember.activityId = activityRes._id
+      if (existingRes.data && existingRes.data.length > 0) {
+        // 复用已有活动，绑定activityId，并更新teamId
+        newMember.activityId = existingRes.data[0]._id
+        await db.collection('activities').doc(newMember.activityId).update({
+          data: {
+            teamId: teamId,
+            isTeamActivity: true
+          }
+        })
+      } else {
+        // 没有已有活动，创建新活动
+        const activity = {
+          userId: user._id,
+          _openid: openid,
+          title: `${team.teamName} - 队伍行程`,
+          status: 1, // 1-进行中
+          teamId: teamId,
+          isTeamActivity: true,
+          createTime: db.serverDate(),
+          startTime: db.serverDate(),
+          totalDistance: 0,
+          duration: 0,
+          avgSpeed: 0,
+          maxSpeed: 0
+        }
+        
+        const activityRes = await db.collection('activities').add({ data: activity })
+        newMember.activityId = activityRes._id
+      }
     }
 
     const newMembers = [...(team.members || []), newMember]
@@ -533,6 +557,67 @@ async function startJourney(openid, teamId) {
       success: true,
       started: true,
       memberActivities: updateResults
+    }
+  } catch (e) {
+    return { success: false, error: e.message }
+  }
+}
+
+// 队长结束行程：全队停止记录，所有活动标记为结束
+async function endJourney(openid, teamId) {
+  try {
+    // 获取队伍信息
+    const teamRes = await db.collection('teams').doc(teamId).get()
+    if (!teamRes.data) {
+      return { success: false, error: '队伍不存在' }
+    }
+    const team = teamRes.data
+    
+    // 检查权限：只有队长能结束
+    if (team.creatorOpenid !== openid) {
+      return { success: false, error: '只有队长可以结束行程' }
+    }
+    
+    // 检查状态：只能从行进中结束
+    if (team.status !== 2) {
+      return { success: false, error: `当前队伍状态不对，无法结束：${team.status}` }
+    }
+    
+    const members = team.members || []
+    const results = []
+    
+    // 遍历所有队员，将每个队员绑定的活动标记为已结束
+    for (const member of members) {
+      if (member.activityId) {
+        // 更新活动状态为已结束，并记录结束时间
+        await db.collection('activities').doc(member.activityId).update({
+          data: {
+            status: 2, // 2-已结束
+            endTime: db.serverDate(),
+            updateTime: db.serverDate()
+          }
+        })
+        results.push({ 
+          openid: member.openid, 
+          activityId: member.activityId,
+          ended: true
+        })
+      }
+    }
+    
+    // 更新队伍状态为已结束
+    await db.collection('teams').doc(teamId).update({
+      data: {
+        status: 3, // 已结束
+        endTime: db.serverDate(),
+        updateTime: db.serverDate()
+      }
+    })
+    
+    return {
+      success: true,
+      ended: true,
+      memberActivities: results
     }
   } catch (e) {
     return { success: false, error: e.message }
