@@ -97,8 +97,6 @@ Page({
   onLoad() {
     this.login()
     this.getLocation()
-    // 测试：加载模拟轨迹（测试完注释掉即可）
-    this.testLoadTrack()
   },
   onShow() {
     this.checkActiveActivity()
@@ -904,37 +902,24 @@ Page({
         if (res.result?.activity) {
           const activity = res.result.activity
 
-          // 如果活动已经结束（可能是队长在队伍中点击了结束行程），自动停止并保存
+          // 如果活动已经结束（可能是队长在队伍中点击了结束行程），清理本地状态，允许重新开始
           if (activity.status === 2) {
-            console.log('[index] 检测到当前活动已结束（队伍已结束行程），自动保存')
-            // 如果已经有记录点，保存轨迹后停止
-            if (activity._id) {
-              that.setData({ activityId: activity._id })
-              that._cloudSyncedCount = 0
-              // 获取轨迹点后保存
-              wx.cloud.callFunction({
-                name: 'activity',
-                data: { action: 'getTrackPoints', activityId: activity._id },
-                success: (trackRes) => {
-                  if (trackRes.result?.trackPoints) {
-                    that.setData({
-                      trackPoints: trackRes.result.trackPoints,
-                      isRecording: true
-                    })
-                    // 恢复卡尔曼滤波器，用最后一个点初始化
-                    if (trackRes.result.trackPoints.length > 0) {
-                      const last = trackRes.result.trackPoints[trackRes.result.trackPoints.length - 1]
-                      that.latFilter = new KalmanFilter(CONFIG.KALMAN_PROCESS_NOISE, CONFIG.KALMAN_MEASUREMENT_NOISE)
-                      that.lngFilter = new KalmanFilter(CONFIG.KALMAN_PROCESS_NOISE, CONFIG.KALMAN_MEASUREMENT_NOISE)
-                      that.latFilter.filter(last.latitude)
-                      that.lngFilter.filter(last.longitude)
-                    }
-                    that.saveActivity() // 自动保存并停止
-                    wx.showToast({ title: '队伍行程已结束，轨迹已保存', icon: 'success' })
-                  }
-                }
-              })
-            }
+            console.log('[index] 检测到当前活动已结束（队伍已结束行程），清理本地状态')
+            // 清理本地状态，允许用户重新开始划行
+            that.setData({
+              activityId: null,
+              trackPoints: [],
+              polylines: [],
+              currentDistance: '0.00',
+              currentSpeed: '0.0',
+              currentDuration: '00:00:00',
+              isRecording: false,
+              isPaused: false,
+              currentActivity: null
+            })
+            that._cloudSyncedCount = 0
+            that._lastCloudSyncAt = 0
+            wx.showToast({ title: '队伍行程已结束', icon: 'success' })
             return
           }
           
