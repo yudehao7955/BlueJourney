@@ -1,7 +1,7 @@
 // pages/index/index.js
 // 高德配置
 const AMAP_KEY = '4f3f05ab8fc35c293e54411675c241f1';
-const { buildMapPolylines } = require('../../utils/track.js')
+const { buildMapPolylines, calculateDistance, calculateStats, formatDuration } = require('../../utils/track.js')
 const { saveActiveTrackSession, clearActiveTrackSession } = require('../../utils/track-session.js')
 
 // 轨迹采集配置
@@ -45,23 +45,6 @@ class KalmanFilter {
     this.P = (1 - this.K) * this.P;
     return this.x;
   }
-}
-
-// 工具函数
-function calculateDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371000
-  const dLat = (lat2 - lat1) * Math.PI / 180
-  const dLon = (lon2 - lon1) * Math.PI / 180
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-}
-
-function formatDuration(ms) {
-  const seconds = Math.floor(ms / 1000)
-  const h = Math.floor(seconds / 3600)
-  const m = Math.floor((seconds % 3600) / 60)
-  const s = seconds % 60
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
 }
 
 Page({
@@ -180,9 +163,41 @@ Page({
             }
           })
         } else {
-          // 未授权，不开启 showLocation，避免二次弹窗
-          // 用户点击开始记录时会请求授权，之后再开启
-          console.log('[index] 定位未授权，等待用户点击开始记录时再请求')
+          // 未授权，主动请求授权
+          wx.authorize({
+            scope: 'scope.userLocation',
+            success: () => {
+              // 用户同意授权，开始获取位置
+              wx.getLocation({
+                type: 'gcj02',
+                success: (res) => {
+                  this.setData({
+                    latitude: res.latitude,
+                    longitude: res.longitude,
+                    showLocation: true,
+                    markers: [{
+                      id: 0,
+                      latitude: res.latitude,
+                      longitude: res.longitude,
+                      width: 30,
+                      height: 30,
+                    }]
+                  })
+                  // 移动到当前位置
+                  const mapCtx = wx.createMapContext('myMap', this)
+                  mapCtx.moveToLocation()
+                },
+                fail: () => {
+                  wx.showToast({ title: '定位失败，请开启权限', icon: 'none' })
+                }
+              })
+            },
+            fail: () => {
+              // 用户拒绝授权，不强制，等待点击开始记录
+              console.log('[index] 用户拒绝定位授权')
+              wx.showToast({ title: '需要定位权限才能记录轨迹', icon: 'none' })
+            }
+          })
         }
       }
     })
@@ -652,37 +667,10 @@ Page({
       },
       complete: () => {
         this._appendInProgress = false
-      },
-      success: (res) => {
-        const r = res.result
-        if (r && r.success !== false && !r.error) {
-          this._cloudSyncedCount = n
-          this._lastCloudSyncAt = Date.now()
-          this.persistActiveTrackLocal()
-        }
-      },
-      fail: () => {
-        this._appendInProgress = false
       }
     })
   },
-  // 计算两点距离（米）
-  calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371000
-    const dLat = (lat2 - lat1) * Math.PI / 180
-    const dLon = (lon2 - lon1) * Math.PI / 180
-    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  },
-  // 格式化时长
-  formatDuration(ms) {
-    const seconds = Math.floor(ms / 1000)
-    const h = Math.floor(seconds / 3600)
-    const m = Math.floor((seconds % 3600) / 60)
-    const s = seconds % 60
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-  },
-  // 保存活动
+
   // 保存活动并优化轨迹
   saveActivity() {
     if (!this.data.activityId) return
