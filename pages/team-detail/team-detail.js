@@ -490,30 +490,48 @@ Page({
     const teamName = this.data.team?.teamName || '蓝旅队伍'
     if (!teamId) return
 
-    // 邀请链接 - 小程序二维码需要通过 wx.createQRCode 生成
-    const invitePath = `pages/team/team?teamId=${teamId}&action=join`
+    // 邀请链接 - 使用 qrcodejs 生成二维码
+    const inviteData = JSON.stringify({
+      type: 'teamInvite',
+      teamId: teamId,
+      appid: getApp().appid
+    })
+    const size = that.data.qrSize || 200
     
     // 延迟绘制确保 canvas 已渲染
     setTimeout(() => {
-      // 使用微信官方接口生成二维码图片
-      wx.createQRCode({
-        canvasId: 'teamQr',
-        data: JSON.stringify({
-          type: 'teamInvite',
-          teamId: teamId,
-          appid: getApp().appid
-        }),
-        width: that.data.qrSize || 200,
-        success: () => {
+      const query = wx.createSelectorQuery()
+      query.select('#teamQr')
+        .fields({ node: true, size: true })
+        .exec((res) => {
+          if (!res[0] || !res[0].node) {
+            wx.showToast({ title: 'canvas获取失败', icon: 'none' })
+            return
+          }
+
+          const canvas = res[0].node
+          const ctx = canvas.getContext('2d')
+          const dpr = wx.getSystemInfoSync().pixelRatio || 2
+          
+          canvas.width = size * dpr
+          canvas.height = size * dpr
+          ctx.scale(dpr, dpr)
+
+          // 使用 qrcodejs 生成二维码
+          const QRCode = require('../../node_modules/qrcodejs/qrcode.min.js')
+          const qr = new QRCode(canvas, {
+            text: inviteData,
+            width: size,
+            height: size,
+            colorDark: '#000000',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.H
+          })
+
           console.log('[team-detail] 二维码生成成功')
           // 在二维码上方绘制文字
           that.drawQrText(teamName, teamId)
-        },
-        fail: (err) => {
-          console.error('[team-detail] 二维码生成失败', err)
-          wx.showToast({ title: '二维码生成失败', icon: 'none' })
-        }
-      })
+        })
     }, 200)
   },
 
