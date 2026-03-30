@@ -10,7 +10,7 @@ const CONFIG = {
   MIN_DISTANCE: 5,         // 距离 ≥ 5米记录（增大，减少静止点）
   MIN_TIME_INTERVAL: 2000, // 每2秒强制记录一次（缩短）
   MIN_SPEED: 0,             // 不过滤速度
-  MAX_SPEED: 55,            // 速度 < 55 km/h（过滤异常跳点）
+  MAX_SPEED: 500,           // 速度 < 500 km/h（过滤异常跳点（已取消限制）
   // 停留点检测配置
   STOP_SPEED_THRESHOLD: 0.5,  // km/h 低于此速度视为可能停止
   STOP_DURATION_THRESHOLD: 2 * 60 * 1000, // 2分钟 静止超过此时长停止记录
