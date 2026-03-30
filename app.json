@@ -17,9 +17,6 @@
   "permission": {
     "scope.userLocation": {
       "desc": "用于记录划行轨迹"
-    },
-    "scope.userLocationBackground": {
-      "desc": "退后台时继续记录轨迹"
     }
   },
   "window": {
