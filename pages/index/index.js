@@ -78,6 +78,8 @@ Page({
     showLocation: false,  // 初始不显示地图自带定位，避免二次弹窗
     isRecording: false,
     isPaused: false,
+    isCaptain: false,  // 是否是队长
+    activeTeam: null,  // 当前活跃队伍
     pauseStartTime: null,
     totalPauseTime: 0,  // 总暂停时长（毫秒）
     timerInterval: null,
@@ -100,6 +102,7 @@ Page({
   },
   onShow() {
     this.checkActiveActivity()
+    this.checkActiveTeam()
   },
   onHide() {
     if (this.data.isRecording && this.data.activityId) {
@@ -1058,3 +1061,97 @@ Page({
     }
   }
 })
+
+// 检查当前活跃队伍（组队中或行进中）
+checkActiveTeam() {
+  const that = this
+  wx.cloud.callFunction({
+    name: 'team',
+    data: { action: 'getActive' },
+    success: (res) => {
+      if (res.result?.team) {
+        that.setData({
+          activeTeam: res.result.team,
+          isCaptain: res.result.team.isCaptain
+        })
+      } else {
+        that.setData({
+          activeTeam: null,
+          isCaptain: false
+        })
+      }
+    }
+  })
+},
+
+// 队长点击队伍出发
+teamStartJourney() {
+  if (!this.data.activeTeam || !this.data.isCaptain) {
+    wx.showToast({ title: '只有队长可以出发', icon: 'none' })
+    return
+  }
+  
+  wx.showLoading({ title: '出发中...' })
+  wx.cloud.callFunction({
+    name: 'team',
+    data: { 
+      action: 'startJourney', 
+      teamId: this.data.activeTeam._id 
+    },
+    success: (res) => {
+      wx.hideLoading()
+      if (res.result?.success) {
+        wx.showToast({ title: '出发！', icon: 'success' })
+        // 刷新队伍状态
+        this.checkActiveTeam()
+        this.checkActiveActivity()
+      } else {
+        wx.showToast({ title: res.result?.error || '出发失败', icon: 'none' })
+      }
+    },
+    fail: (err) => {
+      wx.hideLoading()
+      wx.showToast({ title: '出发失败', icon: 'none' })
+    }
+  })
+},
+
+// 队长点击队伍结束
+teamEndJourney() {
+  if (!this.data.activeTeam || !this.data.isCaptain) {
+    wx.showToast({ title: '只有队长可以结束', icon: 'none' })
+    return
+  }
+  
+  wx.showModal({
+    title: '结束滑行',
+    content: '确定结束全队滑行吗？',
+    success: (res) => {
+      if (res.confirm) {
+        wx.showLoading({ title: '结束中...' })
+        wx.cloud.callFunction({
+          name: 'team',
+          data: { 
+            action: 'endJourney', 
+            teamId: this.data.activeTeam._id 
+          },
+          success: (res) => {
+            wx.hideLoading()
+            if (res.result?.success) {
+              wx.showToast({ title: '已结束', icon: 'success' })
+              // 刷新队伍状态
+              this.checkActiveTeam()
+              this.checkActiveActivity()
+            } else {
+              wx.showToast({ title: res.result?.error || '结束失败', icon: 'none' })
+            }
+          },
+          fail: (err) => {
+            wx.hideLoading()
+            wx.showToast({ title: '结束失败', icon: 'none' })
+          }
+        })
+      }
+    }
+  })
+},

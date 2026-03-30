@@ -80,8 +80,19 @@
 
       <!-- 控制按钮区 -->
       <view class="control-area">
+        <!-- 队长且在组队中或行进中 -->
         <button 
-          wx:if="{{!isRecording}}" 
+          wx:if="{{isCaptain && activeTeam && !isRecording}}" 
+          class="start-btn" 
+          bindtap="teamStartJourney"
+        >
+          <text class="btn-icon">🚀</text>
+          <text>队伍出发</text>
+        </button>
+        
+        <!-- 非队长或无队伍 -->
+        <button 
+          wx:elif="{{!isRecording}}" 
           class="start-btn" 
           bindtap="startRecording"
         >
@@ -90,11 +101,16 @@
         </button>
         
         <view wx:else class="control-btns">
-          <button class="pause-btn {{isPaused ? '' : 'active'}}" bindtap="pauseRecording">
+          <!-- 队长显示结束全队 -->
+          <button wx:if="{{isCaptain && activeTeam}}" class="stop-btn" bindtap="teamEndJourney">
+            <text class="btn-icon">■</text>
+            <text>队伍滑行结束</text>
+          </button>
+          <button wx:else class="pause-btn {{isPaused ? '' : 'active'}}" bindtap="pauseRecording">
             <text class="btn-icon">{{isPaused ? '▶' : '⏸'}}</text>
             <text>{{isPaused ? '继续' : '暂停'}}</text>
           </button>
-          <button class="stop-btn" bindtap="stopRecording">
+          <button wx:if="{{!isCaptain}}" class="stop-btn" bindtap="stopRecording">
             <text class="btn-icon">■</text>
             <text>结束</text>
           </button>

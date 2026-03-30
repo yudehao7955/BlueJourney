@@ -62,6 +62,10 @@ exports.main = async (event, context) => {
       case 'endJourney':
         return await endJourney(openid, event.teamId)
 
+      // 获取当前活跃队伍（组队中或行进中）
+      case 'getActive':
+        return await getActiveTeam(openid)
+
       default:
         return { success: false, error: '未知操作' }
     }
@@ -364,6 +368,46 @@ async function updateTeam(openid, teamId, data) {
     await db.collection('teams').doc(teamId).update({ data: updateData })
 
     return { success: true }
+  } catch (e) {
+    return { success: false, error: e.message }
+  }
+}
+
+// 获取当前活跃队伍（组队中或行进中）
+async function getActiveTeam(openid) {
+  try {
+    const userRes = await db.collection('users').where({ openid }).get()
+    const user = userRes.data[0]
+    if (!user) {
+      return { success: false, error: '用户不存在' }
+    }
+
+    // 查找用户所在的状态为1(组队中)或2(行进中)的队伍
+    const teamRes = await db.collection('teams').where(
+      _.or([
+        { creatorOpenid: openid },
+        { 'members.openid': openid }
+      ])
+    ).where({
+      status: _.or([1, 2])
+    }).get()
+
+    if (teamRes.data && teamRes.data.length > 0) {
+      // 返回最新的活跃队伍
+      const team = teamRes.data[0]
+      return {
+        success: true,
+        team: {
+          _id: team._id,
+          name: team.name,
+          status: team.status,
+          creatorOpenid: team.creatorOpenid,
+          isCaptain: team.creatorOpenid === openid
+        }
+      }
+    }
+
+    return { success: true, team: null }
   } catch (e) {
     return { success: false, error: e.message }
   }
