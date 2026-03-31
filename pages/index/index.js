@@ -6,7 +6,7 @@ const { saveActiveTrackSession, clearActiveTrackSession } = require('../../utils
 
 // 轨迹采集配置
 const CONFIG = {
-  MIN_ACCURACY: 300,       // 精度 < 300米才记录（放宽，海上GPS精度较差）
+  MIN_ACCURACY: 1000,       // 精度 < 1000米才记录（宽松，海上GPS精度较差）
   MIN_DISTANCE: 2,         // 距离 ≥ 2米记录（平衡实时性与性能）
   MIN_TIME_INTERVAL: 1000, // 每1秒强制记录一次（实时跟进）
   MIN_SPEED: 0,             // 不过滤速度
