@@ -492,8 +492,9 @@ Page({
     // 5. 计算速度（优先用 GPS 速度，否则用距离计算）
     const speedKmh = res.speed > 0 ? res.speed * 3.6 : (distance / (timeInterval / 1000) * 3.6) || 0
     
-    // 调试日志
-    logDebug(this, `GPS速度:${res.speed} 计算:${speedKmh.toFixed(1)}km/h 移动:${distance.toFixed(0)}m`, '首页')
+    // 调试日志：包含上一个点、当前点、移动距离
+    const lastPt = lastPoint ? `${lastPoint.latitude?.toFixed(5)},${lastPoint.longitude?.toFixed(5)}` : 'null'
+    logDebug(this, `上:${lastPt} 当前:${filteredLat.toFixed(5)},${filteredLng.toFixed(5)} 距:${distance.toFixed(0)}m 速:${speedKmh.toFixed(1)}km/h`, '首页')
     
     // ===== 停留点检测 =====
     // 新增：只要移动距离超过阈值（5米），就视为在移动，不判断速度
@@ -591,68 +592,41 @@ Page({
     
     if (polylines.length === 0) {
       // 初始情况，全量计算
-      logDebug(this, `构建polylines: 新${newTrackPoints.length}点 已有${trackPoints.length}点`)
+      logDebug(this, `初始:新${newTrackPoints.length}点 已有${trackPoints.length}点 全量构建`, '首页')
       const result = buildMapPolylines(newTrackPoints)
-      logDebug(this, `polylines结果: ${JSON.stringify(result).substring(0, 100)}`)
+      logDebug(this, `全量结果:${JSON.stringify(result).substring(0, 80)}`, '首页')
       polylines = result.polylines
-      // 更新方向箭头 markers
-      logDebug(this, `setData polylines: ${JSON.stringify(polylines).substring(0, 80)}`)
       this.setData({
         markers: result.directionMarkers,
         polylines: polylines
+      }, () => {
+        logDebug(this, `setData完成 polylines=${this.data.polylines?.length}段`, '首页')
       })
     } else {
       // 增量更新：追加到最后一段
       const lastSegment = polylines[polylines.length - 1]
       if (lastSegment.points.length < 400) {
-        // 最后一段还没满，直接追加
         lastSegment.points.push(newPoint)
-        // 重新生成方向箭头（只有最后一个箭头需要更新）
-        if (this.data.trackPoints.length > 1) {
-          // 只需要更新最后一个箭头，先移除旧的
-          const newMarkers = this.data.markers.filter(m => m.id !== -1)
-          // 计算新箭头方向（最后两点）
-          const p1 = this.data.trackPoints[this.data.trackPoints.length - 2]
-          const p2 = newPoint
-          const rotation = calculateDirection(p1.latitude, p1.longitude, newPoint.latitude, newPoint.longitude)
-          newMarkers.push({
-            id: -1,
-            latitude: newPoint.latitude,
-            longitude: newPoint.longitude,
-            iconPath: '/images/arrow-direction.png',
-            rotate: rotation,
-            width: 30,
-            height: 30,
-            anchor: { x: 0.5, y: 0.5 }
-          })
-          this.setData({
-            markers: newMarkers
-          })
-        }
+        logDebug(this, `增量:追加到第${polylines.length}段 合计${lastSegment.points.length}点`, '首页')
       } else {
-        // 最后一段已满，新建一段（和前一段重叠一个点保证连续）
         const prevLastPoint = lastSegment.points[lastSegment.points.length - 1]
-        polylines.push({ 
-          ...basePolylineOptions, 
-          points: [prevLastPoint, newPoint] 
-        })
+        polylines.push({ ...basePolylineOptions, points: [prevLastPoint, newPoint] })
+        logDebug(this, `增量:新开第${polylines.length}段`, '首页')
       }
     }
     
-    // 移除地图中心的配速显示
+    // 更新所有数据（只setData一次，包含polylines）
     this.setData({
       trackPoints: newTrackPoints,
-      latitude: filteredLat,  // 地图中心跟随定位
+      latitude: filteredLat,
       longitude: filteredLng,
       currentDistance: (totalMeters / 1000).toFixed(2),
       currentSpeed: speedKmh.toFixed(1),
       currentDuration: formatDuration(Math.max(0, activeDuration)),
       polylines: polylines,
-      // 不显示中间标记点
       markers: newMarkers
     }, () => {
-      logDebug(this, `setData完成: polylines=${this.data.polylines?.length}段`)
-      logDebug(this, `添加点成功: 共${newTrackPoints.length}点 线${polylines.length}段`)
+      logDebug(this, `setData完成: polylines=${this.data.polylines?.length}段`, '首页')
       this.persistActiveTrackLocal()
       this.tryCloudIncrementalSync()
     })
