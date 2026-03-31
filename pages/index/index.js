@@ -22,8 +22,8 @@ const CONFIG = {
 // DEBUG_MODE 从 config.js 引入
 CONFIG.DEBUG_MODE = require('../../utils/config.js').DEBUG_MODE
 
-const CLOUD_SYNC_MIN_POINTS = 10
-const CLOUD_SYNC_INTERVAL_MS = 60 * 1000
+const CLOUD_SYNC_MIN_POINTS = 2
+const CLOUD_SYNC_INTERVAL_MS = 30 * 1000  // 30秒
 
 // 一维卡尔曼滤波 - 用于平滑GPS经纬度，抑制噪声和漂移
 class KalmanFilter {
@@ -654,7 +654,10 @@ Page({
   // 云端增量检查点：每 N 点或每 60 秒
   tryCloudIncrementalSync() {
     if (!this.data.isRecording || !this.data.activityId) return
-    if (this._appendInProgress) return
+    if (this._appendInProgress) {
+      logDebug(this, `同步进行中跳过`, '首页')
+      return
+    }
     const pts = this.data.trackPoints
     const n = pts.length
     const synced = this._cloudSyncedCount || 0
@@ -663,7 +666,11 @@ Page({
     const now = Date.now()
     const needByCount = unsynced >= CLOUD_SYNC_MIN_POINTS
     const needByTime = (now - (this._lastCloudSyncAt || 0)) >= CLOUD_SYNC_INTERVAL_MS
-    if (!needByCount && !needByTime) return
+    if (!needByCount && !needByTime) {
+      logDebug(this, `未达同步阈值 已同步${synced} 未同步${unsynced} 距上次${now - (this._lastCloudSyncAt || 0)}ms`, '首页')
+      return
+    }
+    logDebug(this, `开始同步 已同步${synced}点 本次将传${unsynced}点`, '首页')
 
     const slice = pts.slice(synced)
     this._appendInProgress = true
@@ -681,6 +688,11 @@ Page({
         action: 'appendTrackPoints',
         activityId: this.data.activityId,
         points: payloadPoints
+      },
+      success: (res) => {
+        this._cloudSyncedCount = n
+        this._lastCloudSyncAt = Date.now()
+        logDebug(this, `同步成功 已同步${n}点`, '首页')
       },
       complete: () => {
         this._appendInProgress = false
