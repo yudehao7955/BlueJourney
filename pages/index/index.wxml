@@ -4,7 +4,10 @@
   <view class="debug-panel" wx:if="{{debugMode}}">
     <view class="debug-header">
       <text>调试日志 ({{debugLogs.length}}条)</text>
-      <text class="debug-btn" bindtap="copyDebugLog">复制</text>
+      <view class="debug-btns">
+        <text class="debug-btn" bindtap="clearDebugLog">清空</text>
+        <text class="debug-btn" bindtap="copyDebugLog">复制</text>
+      </view>
     </view>
     <scroll-view scroll-y="true" class="debug-content">
       <view wx:for="{{debugLogs}}" wx:key="index" class="debug-line">{{item}}</view>

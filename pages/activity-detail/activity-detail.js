@@ -1,5 +1,5 @@
 const { buildMapPolylines, calculateDistance, calculateStats, formatDuration } = require('../../utils/track.js')
-const { logDebug, copyDebugLog } = require('../../utils/debug.js')
+const { logDebug, copyDebugLog, clearDebugLog } = require('../../utils/debug.js')
 
 // 调试模式开关
 const DEBUG = require('../../utils/config.js').DEBUG_MODE
@@ -91,12 +91,12 @@ Page({
 
   // 获取轨迹点
   getTrackPoints(activityId) {
-    logDebug(this, '获取轨迹点: ' + activityId, '[详情]')
+    logDebug(this, '获取轨迹点: ' + activityId, '活动详情')
     wx.cloud.callFunction({
       name: 'activity',
       data: { action: 'getTrackPoints', activityId },
       success: (res) => {
-        logDebug(this, '轨迹点返回: ' + JSON.stringify(res.result).substring(0, 100), '[详情]')
+        logDebug(this, '轨迹点返回: ' + JSON.stringify(res.result).substring(0, 100), '活动详情')
         if (res.result?.trackPoints) {
           this.processTrackPoints(res.result.trackPoints)
         } else {
@@ -104,7 +104,7 @@ Page({
         }
       },
       fail: (err) => {
-        logDebug(this, '获取轨迹点失败: ' + err, '[详情]')
+        logDebug(this, '获取轨迹点失败: ' + err, '活动详情')
       }
     })
   },
@@ -193,5 +193,10 @@ Page({
       data: logs,
       success: () => wx.showToast({ title: '已复制', icon: 'success' })
     })
+  },
+
+  // 清空调试日志
+  clearDebugLog() {
+    this.setData({ debugLogs: [] })
   }
 })

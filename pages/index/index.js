@@ -3,7 +3,7 @@
 const AMAP_KEY = '4f3f05ab8fc35c293e54411675c241f1';
 const { buildMapPolylines, calculateDistance, calculateStats, formatDuration } = require('../../utils/track.js')
 const { saveActiveTrackSession, clearActiveTrackSession } = require('../../utils/track-session.js')
-const { logDebug, copyDebugLog } = require('../../utils/debug.js')
+const { logDebug, copyDebugLog, clearDebugLog } = require('../../utils/debug.js')
 
 // 轨迹采集配置
 const CONFIG = {
@@ -283,7 +283,7 @@ Page({
               wx.showToast({ title: '创建活动失败', icon: 'none' })
               return
             }
-            logDebug(this, '活动ID:  + activityId)
+            logDebug(this, '活动ID: ' + activityId)
             that._cloudSyncedCount = 0
             that._lastCloudSyncAt = Date.now()
             that._appendInProgress = false
@@ -1129,5 +1129,10 @@ Page({
         wx.showToast({ title: '已复制', icon: 'success' })
       }
     })
+  },
+
+  // 清空调试日志
+  clearDebugLog() {
+    this.setData({ debugLogs: [] })
   },
 })

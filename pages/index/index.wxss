@@ -334,6 +334,11 @@ page {
   color: #888;
 }
 
+.debug-btns {
+  display: flex;
+  gap: 20rpx;
+}
+
 .debug-btn {
   color: #4a90e2 !important;
   font-weight: bold;
