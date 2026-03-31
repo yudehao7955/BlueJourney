@@ -3,10 +3,14 @@
 const AMAP_KEY = '4f3f05ab8fc35c293e54411675c241f1';
 const { buildMapPolylines, calculateDistance, calculateStats, formatDuration } = require('../../utils/track.js')
 const { saveActiveTrackSession, clearActiveTrackSession } = require('../../utils/track-session.js')
+const { logDebug, copyDebugLog } = require('../../utils/debug.js')
 
-// 轨迹采集配置
+// 注意：CONFIG.DEBUG_MODE 改用 config.js 中的全局开关
+CONFIG.DEBUG_MODE = require('../../utils/config.js').DEBUG_MODE
+
+// 轨迹采集配置（其他参数）
 const CONFIG = {
-  DEBUG_MODE: true,  // 调试模式开关
+  // DEBUG_MODE 从 config.js 引入
   MIN_ACCURACY: 1000,       // 精度 < 1000米才记录（宽松，海上GPS精度较差）
   MIN_DISTANCE: 2,         // 距离 ≥ 2米记录（平衡实时性与性能）
   MIN_TIME_INTERVAL: 1000, // 每1秒强制记录一次（实时跟进）
@@ -22,18 +26,6 @@ const CONFIG = {
 
 const CLOUD_SYNC_MIN_POINTS = 10
 const CLOUD_SYNC_INTERVAL_MS = 60 * 1000
-
-// 调试日志 helper
-function logDebug(page, msg) {
-  if (CONFIG.DEBUG_MODE && page.data.debugMode) {
-    const logs = page.data.debugLogs || []
-    const time = new Date().toLocaleTimeString()
-    logs.push(`[${time}] ${msg}`)
-    // 只保留最后100条
-    if (logs.length > 100) logs.shift()
-    page.setData({ debugLogs: logs, debugScrollTop: logs.length * 100 })
-  }
-}
 
 // 一维卡尔曼滤波 - 用于平滑GPS经纬度，抑制噪声和漂移
 class KalmanFilter {
@@ -599,8 +591,10 @@ Page({
       logDebug(this, `polylines结果: ${JSON.stringify(result).substring(0, 100)}`)
       polylines = result.polylines
       // 更新方向箭头 markers
+      logDebug(this, `setData polylines: ${JSON.stringify(polylines).substring(0, 80)}`)
       this.setData({
-        markers: result.directionMarkers
+        markers: result.directionMarkers,
+        polylines: polylines
       })
     } else {
       // 增量更新：追加到最后一段
@@ -657,9 +651,9 @@ Page({
         width: 40,
         height: 40,
         callout: { content: '起点', padding: 8, borderRadius: 4, display: 'ALWAYS' }
-      }] : []
+      }] : newMarkers
     }, () => {
-      console.log(`[index] 已添加轨迹点（卡尔曼滤波），当前共 ${newTrackPoints.length} 点，polylines ${polylines.length} 段`)
+      logDebug(this, `setData完成: polylines=${this.data.polylines?.length}段`)
       logDebug(this, `添加点成功: 共${newTrackPoints.length}点 线${polylines.length}段`)
       this.persistActiveTrackLocal()
       this.tryCloudIncrementalSync()
