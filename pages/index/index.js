@@ -97,6 +97,7 @@ Page({
     debugScrollTop: 0
   },
   onLoad() {
+    logDebug(this, '=== 页面加载 ===')
     this.login()
     this.getLocation()
   },
@@ -111,6 +112,7 @@ Page({
   },
   // 登录
   login() {
+    logDebug(this, '=== 开始登录 ===')
     wx.login({
       success: (res) => {
         wx.cloud.callFunction({
@@ -152,6 +154,7 @@ Page({
   },
   // 获取当前位置
   getLocation() {
+    logDebug(this, '获取定位...')
     wx.getSetting({
       success: (settingRes) => {
         if (settingRes.authSetting['scope.userLocation']) {
@@ -267,6 +270,7 @@ Page({
 
   // 实际开始记录
   doStartRecording() {
+    logDebug(this, '=== 开始划行 ===')
     const that = this
     wx.getLocation({
       type: 'gcj02',
@@ -1120,6 +1124,17 @@ Page({
             fail: () => { wx.hideLoading(); wx.showToast({ title: '结束失败', icon: 'none' }) }
           })
         }
+      }
+    })
+  },
+
+  // 复制调试日志
+  copyDebugLog() {
+    const logs = this.data.debugLogs.join('\n')
+    wx.setClipboardData({
+      data: logs,
+      success: () => {
+        wx.showToast({ title: '已复制', icon: 'success' })
       }
     })
   },
