@@ -7,8 +7,8 @@ const { saveActiveTrackSession, clearActiveTrackSession } = require('../../utils
 // 轨迹采集配置
 const CONFIG = {
   MIN_ACCURACY: 300,       // 精度 < 300米才记录（放宽，海上GPS精度较差）
-  MIN_DISTANCE: 5,         // 距离 ≥ 5米记录（增大，减少静止点）
-  MIN_TIME_INTERVAL: 2000, // 每2秒强制记录一次（缩短）
+  MIN_DISTANCE: 2,         // 距离 ≥ 2米记录（平衡实时性与性能）
+  MIN_TIME_INTERVAL: 1000, // 每1秒强制记录一次（实时跟进）
   MIN_SPEED: 0,             // 不过滤速度
   MAX_SPEED: 500,           // 速度 < 500 km/h（过滤异常跳点（已取消限制）
   // 停留点检测配置
@@ -573,13 +573,40 @@ Page({
     
     if (polylines.length === 0) {
       // 初始情况，全量计算
-      polylines = buildMapPolylines(newTrackPoints)
+      const result = buildMapPolylines(newTrackPoints)
+      polylines = result.polylines
+      // 更新方向箭头 markers
+      this.setData({
+        markers: result.directionMarkers
+      })
     } else {
       // 增量更新：追加到最后一段
       const lastSegment = polylines[polylines.length - 1]
       if (lastSegment.points.length < 400) {
         // 最后一段还没满，直接追加
         lastSegment.points.push(newPoint)
+        // 重新生成方向箭头（只有最后一个箭头需要更新）
+        if (this.data.trackPoints.length > 1) {
+          // 只需要更新最后一个箭头，先移除旧的
+          const newMarkers = this.data.markers.filter(m => m.id !== -1)
+          // 计算新箭头方向（最后两点）
+          const p1 = this.data.trackPoints[this.data.trackPoints.length - 2]
+          const p2 = newPoint
+          const rotation = calculateDirection(p1.latitude, p1.longitude, newPoint.latitude, newPoint.longitude)
+          newMarkers.push({
+            id: -1,
+            latitude: newPoint.latitude,
+            longitude: newPoint.longitude,
+            iconPath: '/images/arrow-direction.png',
+            rotate: rotation,
+            width: 30,
+            height: 30,
+            anchor: { x: 0.5, y: 0.5 }
+          })
+          this.setData({
+            markers: newMarkers
+          })
+        }
       } else {
         // 最后一段已满，新建一段（和前一段重叠一个点保证连续）
         const prevLastPoint = lastSegment.points[lastSegment.points.length - 1]
@@ -946,9 +973,10 @@ Page({
                 that._lastCloudSyncAt = Date.now()
                 
                 // 重新构建polylines显示（恢复时全量计算）
-                const polylines = buildMapPolylines(trackRes.result.trackPoints)
+                const result = buildMapPolylines(trackRes.result.trackPoints)
                 that.setData({
-                  polylines: polylines
+                  polylines: result.polylines,
+                  markers: result.directionMarkers
                 })
                 
                 // 用最后一个点初始化卡尔曼滤波

@@ -1,4 +1,4 @@
-const { buildMapPolylines } = require('../../utils/track.js')
+const { buildMapPolylines, calculateDistance, calculateStats, formatDuration } = require('../../utils/track.js')
 
 // pages/activity-detail/activity-detail.js
 Page({
@@ -108,11 +108,14 @@ Page({
     if (points.length > 0) {
     }
 
-    const polylines = buildMapPolylines(points)
+    const result = buildMapPolylines(points)
+    const polylines = result.polylines
 
     const markers = [
       { id: 0, latitude: points[0].latitude, longitude: points[0].longitude, width: 30, height: 30, callout: { content: '起点', padding: 8, borderRadius: 4, display: 'ALWAYS' } },
-      { id: 1, latitude: points[points.length - 1].latitude, longitude: points[points.length - 1].longitude, width: 30, height: 30, callout: { content: '终点', padding: 8, borderRadius: 4, display: 'ALWAYS' } }
+      { id: 1, latitude: points[points.length - 1].latitude, longitude: points[points.length - 1].longitude, width: 30, height: 30, callout: { content: '终点', padding: 8, borderRadius: 4, display: 'ALWAYS' } },
+      // 添加方向箭头在终点
+      ...result.directionMarkers
     ]
 
     const centerIdx = Math.floor(points.length / 2)
@@ -123,12 +126,18 @@ Page({
     if (activity && activity.totalDistance > 0) {
       stats = {
         distance: (activity.totalDistance / 1000).toFixed(2),
-        duration: this.formatDuration(activity.duration * 1000),
+        duration: formatDuration(activity.duration * 1000),
         avgSpeed: (activity.avgSpeed || 0).toFixed(1),
         maxSpeed: (activity.maxSpeed || 0).toFixed(1)
       }
     } else {
-      stats = this.calculateStats(points)
+      const rawStats = calculateStats(points)
+      stats = {
+        distance: rawStats.distance.toFixed(2),
+        duration: formatDuration(rawStats.durationMs),
+        avgSpeed: rawStats.avgSpeed.toFixed(1),
+        maxSpeed: rawStats.maxSpeed.toFixed(1)
+      }
     }
 
     this.setData({
@@ -145,50 +154,6 @@ Page({
         ctx.includePoints({ points: pts, padding: [100, 80, 160, 80] })
       })
     })
-  },
-
-  // 计算统计数据
-  calculateStats(points) {
-    let totalDistance = 0, maxSpeed = 0, totalSpeed = 0, speedCount = 0
-
-    for (let i = 1; i < points.length; i++) {
-      totalDistance += this.calculateDistance(points[i - 1].latitude, points[i - 1].longitude, points[i].latitude, points[i].longitude)
-      if (points[i].speed > 0) {
-        maxSpeed = Math.max(maxSpeed, points[i].speed)
-        totalSpeed += points[i].speed
-        speedCount++
-      }
-    }
-
-    let duration = 0
-    if (points[0]?.timestamp && points[points.length - 1]?.timestamp) {
-      duration = new Date(points[points.length - 1].timestamp).getTime() - new Date(points[0].timestamp).getTime()
-    }
-
-    return {
-      distance: (totalDistance / 1000).toFixed(2),
-      duration: this.formatDuration(duration),
-      avgSpeed: speedCount > 0 ? (totalSpeed / speedCount).toFixed(1) : '0',
-      maxSpeed: maxSpeed > 0 ? maxSpeed.toFixed(1) : '0'
-    }
-  },
-
-  // 计算两点距离（米）
-  calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371000
-    const dLat = (lat2 - lat1) * Math.PI / 180
-    const dLon = (lon2 - lon1) * Math.PI / 180
-    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  },
-
-  // 格式化时长
-  formatDuration(ms) {
-    const seconds = Math.floor(ms / 1000)
-    const h = Math.floor(seconds / 3600)
-    const m = Math.floor((seconds % 3600) / 60)
-    const s = seconds % 60
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
   },
 
   // 返回上一页

@@ -16,7 +16,7 @@
   "requiredBackgroundModes": ["location"],
   "permission": {
     "scope.userLocation": {
-      "desc": "用于记录划行轨迹"
+      "desc": "用于定位及记录划行轨迹"
     }
   },
   "window": {

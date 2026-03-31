@@ -84,7 +84,32 @@ function buildMapPolylines(points, opts = {}) {
   }
 
   console.log(`[buildMapPolylines] 分段完成，共 ${polylines.length} 段，${enableSpeedColor ? '按速度渐变' : '单段'}`)
-  return polylines
+
+  // 在终点添加方向箭头 marker
+  let directionMarkers = []
+  if (coords.length >= 2 && opts.addDirectionArrow !== false) {
+    // 取最后两点计算方向
+    const p1 = coords[coords.length - 2]
+    const p2 = coords[coords.length - 1]
+    const rotation = calculateDirection(p1.latitude, p1.longitude, p2.latitude, p2.longitude)
+    
+    directionMarkers = [{
+      id: -1, // 箭头 marker id
+      latitude: p2.latitude,
+      longitude: p2.longitude,
+      iconPath: '/images/arrow-direction.png',
+      rotate: rotation,
+      width: 30,
+      height: 30,
+      anchor: { x: .5, y: .5 } // 中心锚点
+    }]
+  }
+
+  // 返回 polylines + directionMarkers，调用者可以将 markers 添加到地图
+  return {
+    polylines,
+    directionMarkers
+  }
 }
 
 // 判断是否有速度数据
@@ -136,6 +161,23 @@ function hexToRgb(hex) {
 // RGB 转 hex
 function rgbToHex(r, g, b) {
   return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)
+}
+
+// 计算两点之间的方向角度（从 p1 → p2），返回旋转角度（度数）
+function calculateDirection(lat1, lon1, lat2, lon2) {
+  // 转换为弧度
+  const rLat1 = lat1 * Math.PI / 180
+  const rLon1 = lon1 * Math.PI / 180
+  const rLat2 = lat2 * Math.PI / 180
+  const rLon2 = lon2 * Math.PI / 180
+
+  const dLon = rLon2 - rLon1
+  const y = Math.sin(dLon) * Math.cos(rLat2)
+  const x = Math.cos(rLat1) * Math.sin(rLat2) - Math.sin(rLat1) * Math.cos(rLat2) * Math.cos(dLon)
+  let brng = Math.atan2(y, x)
+  brng = brng * 180 / Math.PI
+  // 转为 0-360 角度，箭头方向
+  return (brng + 360) % 360
 }
 
 // 计算两点距离（Haversine formula, 单位：米）
