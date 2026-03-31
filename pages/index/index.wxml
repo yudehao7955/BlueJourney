@@ -47,7 +47,24 @@
       </view>
     </view>
   </view>
-
+  <!-- 顶部中间卡片 - 队伍信息 -->
+  <view class="top-center-card" wx:if="{{activeTeam}}">
+    <view class="team-card" bindtap="goToTeam">
+      <view class="team-name">{{activeTeam.teamName}}</view>
+      <view class="team-status">
+        <text class="team-members">{{activeTeam.memberCount || 0}}/{{activeTeam.maxMembers || 10}} 人</text>
+        <text class="team-status-tag {{activeTeam.status === 1 ? 'status-wait' : 'status-going'}}">
+          {{activeTeam.status === 1 ? '等待出发' : '行进中'}}
+        </text>
+      </view>
+    </view>
+  </view>
+  <view class="top-center-card" wx:else>
+    <view class="team-card empty" bindtap="goToTeam">
+      <text class="empty-text">没有活跃队伍</text>
+      <text class="empty-hint">点击去组队 →</text>
+    </view>
+  </view>
   <!-- 顶部右侧天气卡片 -->
   <view class="top-right-card">
     <text class="weather-icon">☀️</text>
@@ -56,9 +73,6 @@
 
   <!-- 右侧悬浮工具栏 -->
   <view class="right-tools">
-    <view class="tool-btn" bindtap="goToTeam">
-      <image class="tool-icon" src="/images/icons/team.png"></image>
-    </view>
     <view class="tool-btn" bindtap="moveToLocation">
       <image class="tool-icon" src="/images/icons/location.png"></image>
     </view>

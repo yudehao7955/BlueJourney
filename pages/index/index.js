@@ -114,6 +114,7 @@ Page({
     } catch (e) {
       this.setData({ debugMode: false })
     }
+    // 每次显示页面拉取最新队伍信息，保证人数和状态是最新的
     this.checkActiveActivity()
     this.checkActiveTeam()
   },

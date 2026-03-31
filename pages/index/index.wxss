@@ -33,6 +33,13 @@ page {
   left: 30rpx;
   z-index: 100;
 }
+/* 顶部中间组队卡片 */
+.top-center-card {
+  position: fixed;
+  top: 80rpx;
+  left: 130rpx;
+  z-index: 100;
+}
 
 .user-card {
   display: flex;
@@ -41,6 +48,65 @@ page {
   padding: 16rpx 20rpx 16rpx 16rpx;
   border-radius: 50rpx;
   box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.1);
+}
+
+.team-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #fff;
+  padding: 16rpx 24rpx;
+  border-radius: 50rpx;
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.1);
+}
+
+.team-card.empty {
+  background: #f0f0f0;
+}
+
+.team-name {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #1a1a1a;
+  line-height: 1.2;
+  margin-bottom: 8rpx;
+}
+
+.team-status {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.team-members {
+  font-size: 22rpx;
+  color: #666;
+}
+
+.team-status-tag {
+  font-size: 20rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 20rpx;
+  color: #fff;
+}
+
+.team-status-tag.status-wait {
+  background: #faad14;
+}
+
+.team-status-tag.status-going {
+  background: #52c41a;
+}
+
+.empty-text {
+  font-size: 26rpx;
+  color: #666;
+  font-weight: 500;
+}
+
+.empty-hint {
+  font-size: 22rpx;
+  color: #999;
 }
 
 .avatar-btn {
@@ -81,6 +147,20 @@ page {
   font-weight: bold;
   color: #1a1a1a;
   line-height: 1.2;
+}
+/* 顶部左侧用户卡片 */
+.top-left-card {
+  position: fixed;
+  top: 80rpx;
+  left: 30rpx;
+  z-index: 100;
+}
+/* 顶部中间组队卡片 */
+.top-center-card {
+  position: fixed;
+  top: 80rpx;
+  left: 330rpx;
+  z-index: 100;
 }
 
 /* 顶部右侧天气卡片 */
