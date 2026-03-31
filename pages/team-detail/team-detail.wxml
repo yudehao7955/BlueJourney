@@ -49,27 +49,35 @@
       <block wx:for="{{team.members}}" wx:key="openid">
         <view 
           class="member-card {{item.openid === currentOpenid ? 'self' : ''}}" 
-          catchtap="focusMemberLocation" 
-          data-latitude="{{item.location ? item.location.latitude : ''}}" 
-          data-longitude="{{item.location ? item.location.longitude : ''}}"
-          data-openid="{{item.openid}}"
         >
           <image class="member-avatar" src="{{item.avatarUrl || '/images/user.png'}}" mode="aspectFill"></image>
           <view class="member-info">
             <text class="member-name">{{item.nickname}}</text>
             <text wx:if="{{item.role === 'leader'}}" class="member-role">队长</text>
+            <text wx:if="{{item.lastUpdateTime}}" class="member-update">更新 {{item.lastUpdateTime}}</text>
           </view>
-          <view wx:if="{{item.lastUpdate}}" class="member-time">
-            <text>{{item.lastUpdate}}</text>
-          </view>
-          <view 
-            wx:if="{{currentOpenid === team.creatorOpenid && item.openid !== team.creatorOpenid}}" 
-            class="kick-btn" 
-            catchtap="showKickConfirm" 
-            data-openid="{{item.openid}}" 
-            data-nickname="{{item.nickname}}"
-          >
-            <text>踢出</text>
+          <view class="member-actions">
+            <button 
+              class="action-btn btn-location" 
+              catchtap="focusMemberLocation" 
+              data-latitude="{{item.location ? item.location.latitude : ''}}" 
+              data-longitude="{{item.location ? item.location.longitude : ''}}"
+              data-openid="{{item.openid}}"
+            >位置</button>
+            <button 
+              class="action-btn btn-track" 
+              catchtap="showMemberTrack" 
+              data-openid="{{item.openid}}"
+            >轨迹</button>
+            <view 
+              wx:if="{{currentOpenid === team.creatorOpenid && item.openid !== team.creatorOpenid}}" 
+              class="kick-btn" 
+              catchtap="showKickConfirm" 
+              data-openid="{{item.openid}}" 
+              data-nickname="{{item.nickname}}"
+            >
+              <text>踢出</text>
+            </view>
           </view>
         </view>
       </block>

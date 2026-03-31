@@ -14,6 +14,8 @@ Page({
     showMsgModal: false,
     showQrModal: false,
     qrSize: 180,
+    updateTimer: null, // 定时更新计时器
+    originalState: null, // 保存原始地图状态，用于恢复
     
     // 快捷消息（常用海上消息）
     quickMessages: [
@@ -55,6 +57,42 @@ Page({
     
     // 默认收起队员面板
     this.setData({ showMemberPanel: false })
+    
+    // 开启定时更新，每 10 秒更新一次队伍信息和轨迹
+    this.startAutoUpdate()
+  },
+
+  onShow() {
+    // 进入页面后，如果已有定时器，确保更新继续
+    if (!this.data.updateTimer) {
+      this.startAutoUpdate()
+    }
+  },
+
+  onUnload() {
+    // 页面卸载时清除定时器
+    this.stopAutoUpdate()
+  },
+
+  onHide() {
+    // 页面隐藏时停止更新，节省资源
+    this.stopAutoUpdate()
+  },
+
+  // 开启自动定时更新（实时获取队员最新位置和轨迹）
+  startAutoUpdate() {
+    const updateTimer = setInterval(() => {
+      this.getTeamDetail()
+    }, 10000) // 每 10 秒更新一次
+    this.setData({ updateTimer })
+  },
+
+  // 停止自动更新
+  stopAutoUpdate() {
+    if (this.data.updateTimer) {
+      clearInterval(this.data.updateTimer)
+      this.setData({ updateTimer: null })
+    }
   },
 
   // 切换队员面板显示
@@ -178,8 +216,9 @@ Page({
     // 收集所有点用于缩放
     const allPoints = []
     
-    // 保存最新位置信息，用于生成markers
+    // 保存最新位置信息和原始轨迹，用于生成markers和单独显示
     this._memberLatestLocation = {}
+    this._memberTracks = memberTracks
     
     memberTracks.forEach((mt, index) => {
       console.log(`member ${index}:`, mt.nickname, 'trackPoints count:', mt.trackPoints?.length)
@@ -201,8 +240,10 @@ Page({
         }
         
         // 直接为每个成员创建一个 polyline，不同队员使用不同颜色
+        // 保存 openid 便于单独提取显示
         if (points.length >= 2) {
           polylines.push({
+            openid: mt.openid,
             points: points,
             color: colors[index % colors.length],
             width: 6,
@@ -312,7 +353,7 @@ Page({
     this.setData({ showMsgModal: false })
   },
 
-  // 点击队员，地图聚焦到该队员位置
+  // 点击队员"位置"按钮，地图放大聚焦到该队员当前位置
   focusMemberLocation(e) {
     const openid = e.currentTarget.dataset.openid
     let latitude = Number(e.currentTarget.dataset.latitude)
@@ -329,11 +370,94 @@ Page({
       return
     }
     
-    // 更新地图中心到该队员位置，不需要调用 moveToLocation（它会跳回当前GPS位置）
+    // 更新地图中心到该队员位置，放大比例尺
     this.setData({
       latitude: latitude,
-      longitude: longitude
+      longitude: longitude,
+      scale: 18
     })
+    
+    // 5 秒后恢复默认比例尺
+    setTimeout(() => {
+      this.setData({ scale: 16 })
+    }, 5000)
+  },
+
+  // 点击队员"轨迹"按钮，缩放地图显示该队员的完整轨迹
+  showMemberTrack(e) {
+    const openid = e.currentTarget.dataset.openid
+    
+    // 找到该队员的所有轨迹点
+    let memberPoints = []
+    this.data.polylines.forEach(poly => {
+      if (poly.openid === openid && poly.points) {
+        memberPoints = memberPoints.concat(poly.points)
+      }
+    })
+    
+    // 如果当前polylines还没按队员分开，重新从memberTracks获取
+    if (memberPoints.length === 0 && this._memberTracks) {
+      const mt = this._memberTracks.find(m => m.openid === openid)
+      if (mt && mt.trackPoints) {
+        memberPoints = mt.trackPoints.map(p => ({
+          latitude: Number(p.latitude),
+          longitude: Number(p.longitude)
+        }))
+      }
+    }
+    
+    if (memberPoints.length === 0) {
+      wx.showToast({ title: '该队员暂无轨迹', icon: 'none' })
+      return
+    }
+    
+    // 保存当前原始状态，用于之后恢复
+    this._originalState = {
+      latitude: this.data.latitude,
+      longitude: this.data.longitude,
+      polylines: this.data.polylines,
+      markers: this.data.markers
+    }
+    
+    // 只保留该队员的轨迹
+    const singlePolyline = [{
+      points: memberPoints,
+      color: '#0066CC',
+      width: 8,
+      dottedLine: false
+    }]
+    
+    // 更新地图
+    this.setData({
+      polylines: singlePolyline
+    })
+    
+    // 缩放地图让所有轨迹点可见
+    wx.nextTick(() => {
+      const mapCtx = wx.createMapContext('teamMap', this)
+      mapCtx.includePoints({ 
+        points: memberPoints, 
+        padding: [60, 60, 60, 60] 
+      })
+    })
+    
+    // 5 秒后恢复显示所有队员的轨迹
+    setTimeout(() => {
+      this.restoreOriginalMap()
+    }, 5000)
+  },
+
+  // 恢复显示所有队员的轨迹和原始地图状态
+  restoreOriginalMap() {
+    if (!this._originalState) return
+    this.setData({
+      latitude: this._originalState.latitude,
+      longitude: this._originalState.longitude,
+      polylines: this._originalState.polylines,
+      markers: this._originalState.markers,
+      scale: 16
+    })
+    this._originalState = null
   },
 
   // 显示踢出确认弹窗
