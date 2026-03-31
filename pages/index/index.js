@@ -6,6 +6,7 @@ const { saveActiveTrackSession, clearActiveTrackSession } = require('../../utils
 
 // 轨迹采集配置
 const CONFIG = {
+  DEBUG_MODE: true,  // 调试模式开关
   MIN_ACCURACY: 1000,       // 精度 < 1000米才记录（宽松，海上GPS精度较差）
   MIN_DISTANCE: 2,         // 距离 ≥ 2米记录（平衡实时性与性能）
   MIN_TIME_INTERVAL: 1000, // 每1秒强制记录一次（实时跟进）
@@ -21,6 +22,18 @@ const CONFIG = {
 
 const CLOUD_SYNC_MIN_POINTS = 10
 const CLOUD_SYNC_INTERVAL_MS = 60 * 1000
+
+// 调试日志 helper
+function logDebug(page, msg) {
+  if (CONFIG.DEBUG_MODE && page.data.debugMode) {
+    const logs = page.data.debugLogs || []
+    const time = new Date().toLocaleTimeString()
+    logs.push(`[${time}] ${msg}`)
+    // 只保留最后100条
+    if (logs.length > 100) logs.shift()
+    page.setData({ debugLogs: logs, debugScrollTop: logs.length * 100 })
+  }
+}
 
 // 一维卡尔曼滤波 - 用于平滑GPS经纬度，抑制噪声和漂移
 class KalmanFilter {
@@ -77,7 +90,11 @@ Page({
     startTime: null,
     // 停留点检测状态
     stopStartTime: null,
-    isStopped: false
+    isStopped: false,
+    // 调试模式
+    debugMode: CONFIG.DEBUG_MODE,
+    debugLogs: [],
+    debugScrollTop: 0
   },
   onLoad() {
     this.login()
@@ -452,7 +469,7 @@ Page({
     // 1. 精度过滤：精度大于CONFIG.MIN_ACCURACY米的点不记录（accuracy越小越精确）
     // 处理 accuracy 不存在的兼容情况
     if (res.accuracy !== undefined && res.accuracy > CONFIG.MIN_ACCURACY) {
-      console.log(`[index] 点被过滤：精度 ${res.accuracy} > ${CONFIG.MIN_ACCURACY}`)
+      logDebug(this, `过滤: 精度${res.accuracy}m > ${CONFIG.MIN_ACCURACY}m`)
       return
     }
     
@@ -519,12 +536,12 @@ Page({
       (distance >= CONFIG.MIN_DISTANCE)
     
     if (!shouldRecord) {
+      logDebug(this, `过滤: 距${distance.toFixed(1)}m 时${timeInterval}ms`)
       // 即使不记录轨迹，也要更新地图中心
       this.setData({
         latitude: filteredLat,
         longitude: filteredLng
       })
-      console.log(`[index] 点被过滤：距离 ${distance.toFixed(1)}m < ${CONFIG.MIN_DISTANCE}m，时间 ${timeInterval}ms < ${CONFIG.MIN_TIME_INTERVAL}ms`)
       return
     }
 
@@ -573,11 +590,9 @@ Page({
     
     if (polylines.length === 0) {
       // 初始情况，全量计算
-      console.log('[index] 开始构建 polylines，点数:', newTrackPoints.length)
-      // 调试：初始构建时弹窗
-      wx.showToast({ title: `构建线: ${newTrackPoints.length}点`, icon: 'none', duration: 1500 })
+      logDebug(this, `构建polylines: 新${newTrackPoints.length}点 已有${trackPoints.length}点`)
       const result = buildMapPolylines(newTrackPoints)
-      console.log('[index] buildMapPolylines 结果:', JSON.stringify(result))
+      logDebug(this, `polylines结果: ${JSON.stringify(result).substring(0, 100)}`)
       polylines = result.polylines
       // 更新方向箭头 markers
       this.setData({
@@ -641,6 +656,7 @@ Page({
       }] : []
     }, () => {
       console.log(`[index] 已添加轨迹点（卡尔曼滤波），当前共 ${newTrackPoints.length} 点，polylines ${polylines.length} 段`)
+      logDebug(this, `添加点成功: 共${newTrackPoints.length}点 线${polylines.length}段`)
       this.persistActiveTrackLocal()
       this.tryCloudIncrementalSync()
     })

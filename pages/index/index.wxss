@@ -306,3 +306,24 @@ page {
 .stop-btn::after {
   border: none;
 }
+
+/* 调试面板 */
+.debug-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 20vh;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 10rpx;
+  z-index: 9999;
+  overflow-y: scroll;
+}
+
+.debug-line {
+  font-size: 22rpx;
+  color: #0f0;
+  font-family: monospace;
+  line-height: 1.4;
+  word-break: break-all;
+}

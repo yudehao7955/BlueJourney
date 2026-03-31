@@ -1,5 +1,10 @@
 <!--pages/index/index.wxml-->
 <view class="container">
+  <!-- 调试信息展示区 -->
+  <scroll-view scroll-y="true" scroll-top="{{debugScrollTop}}" class="debug-panel" wx:if="{{debugMode}}">
+    <view wx:for="{{debugLogs}}" wx:key="index" class="debug-line">{{item}}</view>
+  </scroll-view>
+
   <!-- 地图区域 -->
   <map 
     id="myMap"
