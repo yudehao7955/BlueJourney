@@ -1,5 +1,18 @@
 // utils/debug.js - 调试模块
 const CONFIG = require('./config.js')
+const DEBUG_MODE_KEY = 'debugMode'
+
+/**
+ * 获取全局调试模式设置
+ */
+function isDebugEnabled() {
+  try {
+    return wx.getStorageSync(DEBUG_MODE_KEY) !== false
+  } catch (e) {
+    // 默认关闭
+    return false
+  }
+}
 
 /**
  * 调试日志输出
@@ -8,6 +21,10 @@ const CONFIG = require('./config.js')
  * @param {string} prefix - 日志前缀（页面标识）
  */
 function logDebug(page, msg, prefix) {
+  // 全局调试模式关闭则不记录
+  if (!isDebugEnabled()) return
+
+  // 如果页面没有debugMode数据，也不记录
   const enabled = page.data?.debugMode !== false
   if (!enabled) return
 
@@ -16,7 +33,8 @@ function logDebug(page, msg, prefix) {
   const tag = prefix || '[INDEX]'
   logs.push(`[${time}] ${tag} ${msg}`)
 
-  if (logs.length > 100) logs.shift()
+  // 限制最多保留 500 条日志
+  if (logs.length > 500) logs.shift()
   
   // 自动滚动到最新日志（设置scroll-top为一个大值）
   const maxScrollTop = logs.length * 100  // 每条日志约100px高度

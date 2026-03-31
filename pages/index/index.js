@@ -84,8 +84,8 @@ Page({
     // 停留点检测状态
     stopStartTime: null,
     isStopped: false,
-    // 调试模式
-    debugMode: DEBUG_MODE,
+    // 调试模式（从本地存储读取全局设置）
+    debugMode: false,
     debugLogs: [],
     debugScrollTop: 0,
     debugPanelCollapsed: false
@@ -95,11 +95,25 @@ Page({
     this.handleLocationChangeBound = (res) => {
       this.handleLocationUpdate(res)
     }
+    // 读取全局调试模式设置
+    try {
+      const debugMode = wx.getStorageSync('debugMode')
+      this.setData({ debugMode: debugMode !== false })
+    } catch (e) {
+      this.setData({ debugMode: false })
+    }
     logDebug(this, '=== 页面加载 ===', '[首页]')
     this.login()
     this.getLocation()
   },
   onShow() {
+    // 每次显示页面时重新读取调试模式设置，保证设置生效
+    try {
+      const debugMode = wx.getStorageSync('debugMode')
+      this.setData({ debugMode: debugMode !== false })
+    } catch (e) {
+      this.setData({ debugMode: false })
+    }
     this.checkActiveActivity()
     this.checkActiveTeam()
   },

@@ -1,0 +1,15 @@
+<view class="container">
+  <view class="settings-list">
+    <view class="setting-item">
+      <view class="setting-label">调试模式</view>
+      <switch 
+        checked="{{debugMode}}" 
+        bindchange="onDebugModeChange"
+        color="#0066CC"
+      />
+    </view>
+    <view class="setting-desc">
+      开启后在首页和活动详情页显示调试面板，可查看日志用于问题排查。关闭后隐藏调试面板并停止日志记录。
+    </view>
+  </view>
+</view>

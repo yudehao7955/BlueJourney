@@ -5,7 +5,8 @@
     "pages/profile/profile",
     "pages/activity-list/activity-list",
     "pages/activity-detail/activity-detail",
-    "pages/team-detail/team-detail"
+    "pages/team-detail/team-detail",
+    "pages/settings/settings"
   ],
   "requiredPrivateInfos": [
     "getLocation",

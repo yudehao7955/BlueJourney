@@ -1,9 +1,6 @@
 const { buildMapPolylines, calculateDistance, calculateStats, formatDuration } = require('../../utils/track.js')
 const { logDebug, copyDebugLog, clearDebugLog } = require('../../utils/debug.js')
 
-// 调试模式开关
-const DEBUG = require('../../utils/config.js').DEBUG_MODE
-
 Page({
   data: {
     activityId: null,
@@ -17,17 +14,34 @@ Page({
     subKey: 'G7KBZ-VLFCA-ZUFK2-CHSJA-XLK4F-YLFPY',
     stats: { distance: 0, duration: '00:00:00', avgSpeed: 0, maxSpeed: 0 },
     showPanel: false,
-    // 调试相关
-    debugMode: DEBUG,
+    // 调试相关（从全局设置读取）
+    debugMode: false,
     debugLogs: [],
     debugScrollTop: 0,
     debugPanelCollapsed: false
   },
 
   onLoad(options) {
+    // 读取全局调试模式设置
+    try {
+      const debugMode = wx.getStorageSync('debugMode')
+      this.setData({ debugMode: debugMode !== false })
+    } catch (e) {
+      this.setData({ debugMode: false })
+    }
     if (options.id) {
       this.setData({ activityId: options.id })
       this.getActivityDetail(options.id)
+    }
+  },
+
+  onShow() {
+    // 每次显示页面时重新读取调试模式设置，保证设置生效
+    try {
+      const debugMode = wx.getStorageSync('debugMode')
+      this.setData({ debugMode: debugMode !== false })
+    } catch (e) {
+      this.setData({ debugMode: false })
     }
   },
 
