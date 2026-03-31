@@ -19,7 +19,8 @@ Page({
     showPanel: false,
     // 调试相关
     debugMode: DEBUG,
-    debugLogs: []
+    debugLogs: [],
+    debugScrollTop: 0
   },
 
   onLoad(options) {

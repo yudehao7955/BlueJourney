@@ -9,7 +9,7 @@
         <text class="debug-btn" bindtap="copyDebugLog">复制</text>
       </view>
     </view>
-    <scroll-view scroll-y="true" class="debug-content">
+    <scroll-view scroll-y="true" scroll-top="{{debugScrollTop}}" class="debug-content">
       <view wx:for="{{debugLogs}}" wx:key="index" class="debug-line">{{item}}</view>
     </scroll-view>
   </view>

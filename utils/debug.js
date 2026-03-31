@@ -17,7 +17,10 @@ function logDebug(page, msg, prefix) {
   logs.push(`[${time}] ${tag} ${msg}`)
 
   if (logs.length > 100) logs.shift()
-  page.setData({ debugLogs: logs })
+  
+  // 自动滚动到最新日志（设置scroll-top为一个大值）
+  const maxScrollTop = logs.length * 100  // 每条日志约100px高度
+  page.setData({ debugLogs: logs, debugScrollTop: maxScrollTop + 1000 })
 }
 
 /**
