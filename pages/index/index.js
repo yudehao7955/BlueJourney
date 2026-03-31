@@ -595,31 +595,26 @@ Page({
       // 初始情况，全量计算
       logDebug(this, `初始:新${newTrackPoints.length}点 已有${trackPoints.length}点 全量构建`, '首页')
       const result = buildMapPolylines(newTrackPoints)
-      logDebug(this, `全量结果:${JSON.stringify(result).substring(0, 80)}`, '首页')
       polylines = result.polylines
-      this.setData({
-        markers: result.directionMarkers,
-        polylines: polylines
-      }, () => {
-        logDebug(this, `setData完成 polylines=${this.data.polylines?.length}段`, '首页')
-      })
+      // directionMarkers 合并到 newMarkers
+      if (result.directionMarkers) {
+        newMarkers = newMarkers.concat(result.directionMarkers)
+      }
     } else {
       // 增量更新：追加到最后一段
       const lastSegment = polylines[polylines.length - 1]
       if (lastSegment.points.length < 400) {
         lastSegment.points.push(newPoint)
-        logDebug(this, `增量追加前: ${polylines.length}段`, '首页')
       } else {
         const prevLastPoint = lastSegment.points[lastSegment.points.length - 1]
         polylines.push({ ...basePolylineOptions, points: [prevLastPoint, newPoint] })
-        logDebug(this, `增量:新开第${polylines.length}段`, '首页')
       }
     }
     
-    // 打印 setData 前的 polylines 内容
-    logDebug(this, `setData前: polylines=${polylines.length}段 第1段${polylines[0]?.points?.length}点`, '首页')
+    // 打印 setData 前的 polylines 内容（只打印一次）
+    logDebug(this, `setData: polylines=${polylines.length}段 第1段${polylines[0]?.points?.length || 0}点`, '首页')
     
-    // 更新所有数据（只setData一次，包含polylines）
+    // 统一 setData
     this.setData({
       trackPoints: newTrackPoints,
       latitude: filteredLat,
@@ -630,14 +625,9 @@ Page({
       polylines: polylines,
       markers: newMarkers
     }, () => {
-      // setData 完成后
       this.persistActiveTrackLocal()
       this.tryCloudIncrementalSync()
     })
-    // 在setData之前打印增量日志
-    if (polylines.length > 0 && lastSegment.points.length > 0) {
-      logDebug(this, `已追加: polylines=${polylines.length}段 共${polylines[0].points.length}点`, '首页')
-    }
   },
   // 本地持久化：进行中划行会话（防崩溃/杀进程）
   buildPersistPayload() {
