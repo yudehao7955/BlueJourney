@@ -5,24 +5,21 @@ const { buildMapPolylines, calculateDistance, calculateStats, formatDuration } =
 const { saveActiveTrackSession, clearActiveTrackSession } = require('../../utils/track-session.js')
 const { logDebug, copyDebugLog } = require('../../utils/debug.js')
 
-// 注意：CONFIG.DEBUG_MODE 改用 config.js 中的全局开关
-CONFIG.DEBUG_MODE = require('../../utils/config.js').DEBUG_MODE
-
-// 轨迹采集配置（其他参数）
+// 轨迹采集配置
 const CONFIG = {
-  // DEBUG_MODE 从 config.js 引入
-  MIN_ACCURACY: 1000,       // 精度 < 1000米才记录（宽松，海上GPS精度较差）
-  MIN_DISTANCE: 2,         // 距离 ≥ 2米记录（平衡实时性与性能）
-  MIN_TIME_INTERVAL: 1000, // 每1秒强制记录一次（实时跟进）
-  MIN_SPEED: 0,             // 不过滤速度
-  MAX_SPEED: 500,           // 速度 < 500 km/h（过滤异常跳点（已取消限制）
-  // 停留点检测配置
-  STOP_SPEED_THRESHOLD: 0.5,  // km/h 低于此速度视为可能停止
-  STOP_DURATION_THRESHOLD: 2 * 60 * 1000, // 2分钟 静止超过此时长停止记录
-  // 卡尔曼滤波配置
+  MIN_ACCURACY: 1000,
+  MIN_DISTANCE: 2,
+  MIN_TIME_INTERVAL: 1000,
+  MIN_SPEED: 0,
+  MAX_SPEED: 500,
+  STOP_SPEED_THRESHOLD: 0.5,
+  STOP_DURATION_THRESHOLD: 2 * 60 * 1000,
   KALMAN_PROCESS_NOISE: 0.01,
   KALMAN_MEASUREMENT_NOISE: 10
 }
+
+// DEBUG_MODE 从 config.js 引入
+CONFIG.DEBUG_MODE = require('../../utils/config.js').DEBUG_MODE
 
 const CLOUD_SYNC_MIN_POINTS = 10
 const CLOUD_SYNC_INTERVAL_MS = 60 * 1000

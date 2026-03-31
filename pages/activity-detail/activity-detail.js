@@ -86,13 +86,20 @@ Page({
 
   // 获取轨迹点
   getTrackPoints(activityId) {
+    console.log('[detail] 获取轨迹点:', activityId)
     wx.cloud.callFunction({
       name: 'activity',
       data: { action: 'getTrackPoints', activityId },
       success: (res) => {
+        console.log('[detail] 轨迹点返回:', res.result)
         if (res.result?.trackPoints) {
           this.processTrackPoints(res.result.trackPoints)
+        } else {
+          wx.showToast({ title: '无轨迹点数据', icon: 'none' })
         }
+      },
+      fail: (err) => {
+        console.log('[detail] 获取轨迹点失败:', err)
       }
     })
   },
