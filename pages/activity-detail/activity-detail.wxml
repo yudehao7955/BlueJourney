@@ -1,10 +1,11 @@
 <!-- pages/activity-detail/activity-detail.wxml -->
 <view class="page-activity-detail">
   <!-- 调试面板 -->
-  <view class="debug-panel" wx:if="{{debugMode}}">
+  <view class="debug-panel {{debugPanelCollapsed ? 'collapsed' : ''}}" wx:if="{{debugMode}}">
     <view class="debug-header">
       <text>调试 ({{debugLogs.length}}条)</text>
       <view class="debug-btns">
+        <text class="debug-btn" bindtap="toggleDebugPanel">{{debugPanelCollapsed ? '▼展开' : '▲收起'}}</text>
         <text class="debug-btn" bindtap="clearDebugLog">清空</text>
         <text class="debug-btn" bindtap="copyDebugLog">复制</text>
       </view>

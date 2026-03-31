@@ -84,7 +84,8 @@ Page({
     // 调试模式
     debugMode: CONFIG.DEBUG_MODE,
     debugLogs: [],
-    debugScrollTop: 0
+    debugScrollTop: 0,
+    debugPanelCollapsed: false
   },
   onLoad() {
     logDebug(this, '=== 页面加载 ===', '[首页]')
@@ -1128,5 +1129,10 @@ Page({
   // 清空调试日志
   clearDebugLog() {
     this.setData({ debugLogs: [] })
+  },
+  
+  // 展开/收起调试面板
+  toggleDebugPanel() {
+    this.setData({ debugPanelCollapsed: !this.data.debugPanelCollapsed })
   },
 })

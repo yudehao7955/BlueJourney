@@ -20,7 +20,8 @@ Page({
     // 调试相关
     debugMode: DEBUG,
     debugLogs: [],
-    debugScrollTop: 0
+    debugScrollTop: 0,
+    debugPanelCollapsed: false
   },
 
   onLoad(options) {
@@ -199,5 +200,10 @@ Page({
   // 清空调试日志
   clearDebugLog() {
     this.setData({ debugLogs: [] })
+  },
+
+  // 展开/收起调试面板
+  toggleDebugPanel() {
+    this.setData({ debugPanelCollapsed: !this.data.debugPanelCollapsed })
   }
 })
