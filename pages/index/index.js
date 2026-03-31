@@ -365,22 +365,43 @@ Page({
         
         // 如果用户之前明确拒绝过后台定位，引导去设置开启
         if (hasBackgroundPermission === false) {
+          console.log('[index] 用户已拒绝后台定位，引导去设置')
           wx.showModal({
             title: '需要后台定位权限',
             content: '为了在息屏时完整记录运动轨迹，请在设置中开启后台定位权限',
             confirmText: '去设置',
             success: (res) => {
               if (res.confirm) {
-                wx.openSetting()
+                // 用户点击去设置，跳转设置页
+                wx.openSetting({
+                  success: (settingResult) => {
+                    // 用户在设置页授权后回来，重新尝试开启后台定位
+                    if (settingResult.authSetting['scope.userLocationBackground']) {
+                      console.log('[index] 用户开启后台定位，重新启动')
+                      that.startLocationUpdate()
+                    } else {
+                      // 仍未授权，降级前台轮询
+                      that.startForegroundPolling()
+                      wx.onLocationChange(that.handleLocationChangeBound)
+                    }
+                  },
+                  fail: () => {
+                    // 打开设置失败，降级前台轮询
+                    that.startForegroundPolling()
+                    wx.onLocationChange(that.handleLocationChangeBound)
+                  }
+                })
+              } else {
+                // 用户取消，直接降级前台轮询
+                that.startForegroundPolling()
+                wx.onLocationChange(that.handleLocationChangeBound)
               }
-              // 用户拒绝，直接降级前台轮询
-              that.startForegroundPolling()
             }
           })
           return
         }
         
-        // 尝试开启后台定位
+        // 如果未询问过（undefined）或已授权（true），尝试开启后台定位
         // 如果是第一次调用，微信会自动弹窗询问用户授权
         wx.startLocationUpdateBackground({
           success: () => {
