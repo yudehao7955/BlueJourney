@@ -5,11 +5,11 @@
  */
 function buildMapPolylines(points, opts = {}) {
   const maxPerLine = opts.maxPerLine || 400
-  const baseWidth = opts.width || 6
-  const borderColor = opts.borderColor || '#004080'
-  const borderWidth = opts.borderWidth !== undefined ? opts.borderWidth : 2
-  const colorFrom = opts.colorFrom || '#0066CC' // 低速 - 深蓝色
-  const colorTo = opts.colorTo || '#003366'   // 高速 - 深蓝
+  const baseWidth = opts.width || 8
+  const borderColor = opts.borderColor || '#003366'
+  const borderWidth = opts.borderWidth !== undefined ? opts.borderWidth : 3
+  const colorFrom = opts.colorFrom || '#2E8BFF' // 低速 - 亮蓝色
+  const colorTo = opts.colorTo || '#1E90FF'   // 高速 - 蓝色
   const enableSpeedColor = opts.enableSpeedColor !== false // 默认开启根据速度变色
 
   if (!points || points.length === 0) {
@@ -34,12 +34,17 @@ function buildMapPolylines(points, opts = {}) {
   )
 
   console.log(`[buildMapPolylines] 输入点数 ${points.length}, 有效点数 ${coords.length}`)
+  if (coords.length < 2) {
+    points.forEach((p, i) => {
+      console.log(`[buildMapPolylines] 点[${i}]: lat=${p.latitude} lng=${p.longitude} speed=${p.speed}`)
+    })
+  }
 
   if (coords.length < 2) {
     if (points.length > 0) {
       console.warn(`[buildMapPolylines] 输入 ${points.length} 个点，但有效点不足 2 个，请检查点数据格式`)
     }
-    return []
+    return { polylines: [], directionMarkers: [] }
   }
 
   // 如果不启用速度颜色，直接返回单段（原逻辑）

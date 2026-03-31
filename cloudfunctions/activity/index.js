@@ -610,3 +610,28 @@ async function updateActivityDistance(openid, activityId, optimizedDistance) {
     return { success: false, error: e.message }
   }
 }
+
+// 清空所有活动和轨迹点（调试用，只能删除当前用户自己的数据）
+async function clearAll(openid) {
+  try {
+    // 删除所有activities
+    const activitiesRes = await db.collection('activities').where({
+      openid: openid
+    }).remove()
+    const deletedActivities = activitiesRes.stats.removed || 0
+
+    // 删除所有track_points
+    const pointsRes = await db.collection('track_points').where({
+      openid: openid
+    }).remove()
+    const deletedPoints = pointsRes.stats.removed || 0
+
+    return { 
+      success: true, 
+      deletedActivities: deletedActivities,
+      deletedTrackPoints: deletedPoints
+    }
+  } catch (e) {
+    return { success: false, error: e.message }
+  }
+}
