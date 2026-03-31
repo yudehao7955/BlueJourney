@@ -607,13 +607,16 @@ Page({
       const lastSegment = polylines[polylines.length - 1]
       if (lastSegment.points.length < 400) {
         lastSegment.points.push(newPoint)
-        logDebug(this, `增量:追加到第${polylines.length}段 合计${lastSegment.points.length}点`, '首页')
+        logDebug(this, `增量追加前: ${polylines.length}段`, '首页')
       } else {
         const prevLastPoint = lastSegment.points[lastSegment.points.length - 1]
         polylines.push({ ...basePolylineOptions, points: [prevLastPoint, newPoint] })
         logDebug(this, `增量:新开第${polylines.length}段`, '首页')
       }
     }
+    
+    // 打印 setData 前的 polylines 内容
+    logDebug(this, `setData前: polylines=${polylines.length}段 第1段${polylines[0]?.points?.length}点`, '首页')
     
     // 更新所有数据（只setData一次，包含polylines）
     this.setData({
@@ -626,10 +629,14 @@ Page({
       polylines: polylines,
       markers: newMarkers
     }, () => {
-      logDebug(this, `setData完成: polylines=${this.data.polylines?.length}段`, '首页')
+      // setData 完成后
       this.persistActiveTrackLocal()
       this.tryCloudIncrementalSync()
     })
+    // 在setData之前打印增量日志
+    if (polylines.length > 0 && lastSegment.points.length > 0) {
+      logDebug(this, `已追加: polylines=${polylines.length}段 共${polylines[0].points.length}点`, '首页')
+    }
   },
   // 本地持久化：进行中划行会话（防崩溃/杀进程）
   buildPersistPayload() {
