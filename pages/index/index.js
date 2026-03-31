@@ -12,8 +12,9 @@ const CONFIG = {
   MIN_TIME_INTERVAL: 1000,
   MIN_SPEED: 0,
   MAX_SPEED: 500,
-  STOP_SPEED_THRESHOLD: 0.5,
-  STOP_DURATION_THRESHOLD: 2 * 60 * 1000,
+  STOP_SPEED_THRESHOLD: 0.5,  // km/h 低于此速度视为可能停止（已放宽判断）
+  STOP_DURATION_THRESHOLD: 2 * 60 * 1000, // 2分钟
+  STOP_MOVE_THRESHOLD: 5,  // 新增：移动距离阈值（米），超过此距离视为移动中
   KALMAN_PROCESS_NOISE: 0.01,
   KALMAN_MEASUREMENT_NOISE: 10
 }
@@ -491,9 +492,15 @@ Page({
     // 5. 计算速度（优先用 GPS 速度，否则用距离计算）
     const speedKmh = res.speed > 0 ? res.speed * 3.6 : (distance / (timeInterval / 1000) * 3.6) || 0
     
+    // 调试日志
+    logDebug(this, `GPS速度:${res.speed} 计算:${speedKmh.toFixed(1)}km/h 移动:${distance.toFixed(0)}m`, '首页')
+    
     // ===== 停留点检测 =====
-    // 速度低于阈值，可能静止
-    if (speedKmh < CONFIG.STOP_SPEED_THRESHOLD) {
+    // 新增：只要移动距离超过阈值（5米），就视为在移动，不判断速度
+    const isMoving = distance >= CONFIG.STOP_MOVE_THRESHOLD
+    
+    // 速度低于阈值且移动距离不足，可能是静止
+    if (!isMoving && speedKmh < CONFIG.STOP_SPEED_THRESHOLD) {
       if (!this.data.stopStartTime) {
         // 刚开始静止，记录开始时间
         this.setData({ stopStartTime: now })
@@ -641,15 +648,8 @@ Page({
       currentSpeed: speedKmh.toFixed(1),
       currentDuration: formatDuration(Math.max(0, activeDuration)),
       polylines: polylines,
-      // 固定起点标记，不跟随移动
-      markers: newTrackPoints.length === 1 ? [{
-        id: 0,
-        latitude: newTrackPoints[0].latitude,
-        longitude: newTrackPoints[0].longitude,
-        width: 40,
-        height: 40,
-        callout: { content: '起点', padding: 8, borderRadius: 4, display: 'ALWAYS' }
-      }] : newMarkers
+      // 不显示中间标记点
+      markers: newMarkers
     }, () => {
       logDebug(this, `setData完成: polylines=${this.data.polylines?.length}段`)
       logDebug(this, `添加点成功: 共${newTrackPoints.length}点 线${polylines.length}段`)
@@ -928,6 +928,7 @@ Page({
   },
   // 检查进行中的活动
   checkActiveActivity() {
+    logDebug(this, '检查进行中活动...', '首页')
     const that = this
     wx.cloud.callFunction({
       name: 'activity',
