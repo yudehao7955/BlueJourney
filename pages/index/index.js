@@ -348,6 +348,7 @@ Page({
   // 开始位置更新
   // 使用 wx.onLocationChange 持续监听，支持后台定位
   startLocationUpdate() {
+    const that = this
     // 先关闭之前的监听
     this.stopLocationUpdate()
     
@@ -357,43 +358,74 @@ Page({
       this.setData({ locationTimer: null })
     }
     
-    // 开启持续定位监听 - 支持后台更新
-    wx.startLocationUpdateBackground({
-      success: () => {
-      },
-      fail: (err) => {
-        //  fallback 到定时器轮询
-        console.warn('[index] 后台定位启动失败，降级为前台轮询')
-        wx.showToast({
-          title: '已切换至前台定位模式，息屏后可能中断轨迹',
-          icon: 'none',
-          duration: 3000
-        })
-        this.data.locationTimer = setInterval(() => {
-          if (this.data.isRecording) {
-            wx.getLocation({
-              type: 'gcj02',
-              success: (res) => {
-                this.handleLocationUpdate({
-                  latitude: res.latitude,
-                  longitude: res.longitude,
-                  accuracy: res.accuracy,
-                  speed: res.speed || 0,
-                  direction: res.direction || 0,
-                  timestamp: Date.now()
-                })
-              },
-              fail: (err) => {
+    // 先检查后台定位权限状态
+    wx.getSetting({
+      success: (settingRes) => {
+        const hasBackgroundPermission = settingRes.authSetting['scope.userLocationBackground']
+        
+        // 如果用户之前明确拒绝过后台定位，引导去设置开启
+        if (hasBackgroundPermission === false) {
+          wx.showModal({
+            title: '需要后台定位权限',
+            content: '为了在息屏时完整记录运动轨迹，请在设置中开启后台定位权限',
+            confirmText: '去设置',
+            success: (res) => {
+              if (res.confirm) {
+                wx.openSetting()
               }
+              // 用户拒绝，直接降级前台轮询
+              that.startForegroundPolling()
+            }
+          })
+          return
+        }
+        
+        // 尝试开启后台定位
+        // 如果是第一次调用，微信会自动弹窗询问用户授权
+        wx.startLocationUpdateBackground({
+          success: () => {
+            console.log('[index] 后台定位启动成功')
+          },
+          fail: (err) => {
+            //  fallback 到定时器轮询
+            console.warn('[index] 后台定位启动失败，降级为前台轮询', err)
+            wx.showToast({
+              title: '已切换至前台定位模式，息屏后可能中断轨迹',
+              icon: 'none',
+              duration: 3000
             })
+            that.startForegroundPolling()
           }
-        }, 2000)
+        })
+        
+        // 监听位置变化事件（即使在后台也会触发）
+        // 不要用闭包，确保每次都调用当前实例最新的 handleLocationUpdate 和读取最新 data
+        wx.onLocationChange(that.handleLocationChangeBound)
       }
     })
-    
-    // 监听位置变化事件（即使在后台也会触发）
-    // 不要用闭包，确保每次都调用当前实例最新的 handleLocationUpdate 和读取最新 data
-    wx.onLocationChange(this.handleLocationChangeBound)
+  },
+  
+  // 前台轮询定位（降级方案）
+  startForegroundPolling() {
+    this.data.locationTimer = setInterval(() => {
+      if (this.data.isRecording) {
+        wx.getLocation({
+          type: 'gcj02',
+          success: (res) => {
+            this.handleLocationUpdate({
+              latitude: res.latitude,
+              longitude: res.longitude,
+              accuracy: res.accuracy,
+              speed: res.speed || 0,
+              direction: res.direction || 0,
+              timestamp: Date.now()
+            })
+          },
+          fail: (err) => {
+          }
+        })
+      }
+    }, 2000)
   },
   
   // 停止位置更新

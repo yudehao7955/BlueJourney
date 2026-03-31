@@ -17,6 +17,9 @@
   "permission": {
     "scope.userLocation": {
       "desc": "用于定位及记录划行轨迹"
+    },
+    "scope.userLocationBackground": {
+      "desc": "息屏时持续记录划行轨迹，保证轨迹完整"
     }
   },
   "window": {
