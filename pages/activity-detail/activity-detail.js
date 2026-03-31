@@ -91,12 +91,12 @@ Page({
 
   // 获取轨迹点
   getTrackPoints(activityId) {
-    logDebug(this, '获取轨迹点: ' + activityId)
+    logDebug(this, '获取轨迹点: ' + activityId, '[详情]')
     wx.cloud.callFunction({
       name: 'activity',
       data: { action: 'getTrackPoints', activityId },
       success: (res) => {
-        logDebug(this, '轨迹点返回: ' + JSON.stringify(res.result).substring(0, 100))
+        logDebug(this, '轨迹点返回: ' + JSON.stringify(res.result).substring(0, 100), '[详情]')
         if (res.result?.trackPoints) {
           this.processTrackPoints(res.result.trackPoints)
         } else {
@@ -104,7 +104,7 @@ Page({
         }
       },
       fail: (err) => {
-        logDebug(this, '获取轨迹点失败: ' + err)
+        logDebug(this, '获取轨迹点失败: ' + err, '[详情]')
       }
     })
   },

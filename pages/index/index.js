@@ -86,7 +86,7 @@ Page({
     debugScrollTop: 0
   },
   onLoad() {
-    logDebug(this, '=== 页面加载 ===')
+    logDebug(this, '=== 页面加载 ===', '[首页]')
     this.login()
     this.getLocation()
   },
@@ -101,7 +101,7 @@ Page({
   },
   // 登录
   login() {
-    logDebug(this, '=== 开始登录 ===')
+    logDebug(this, '=== 开始登录 ===', '[首页]')
     wx.login({
       success: (res) => {
         wx.cloud.callFunction({
@@ -143,7 +143,7 @@ Page({
   },
   // 获取当前位置
   getLocation() {
-    logDebug(this, '获取定位...')
+    logDebug(this, '获取定位...', '[首页]')
     wx.getSetting({
       success: (settingRes) => {
         if (settingRes.authSetting['scope.userLocation']) {
@@ -259,7 +259,7 @@ Page({
 
   // 实际开始记录
   doStartRecording() {
-    logDebug(this, '=== 开始划行 ===')
+    logDebug(this, '=== 开始划行 ===', '[首页]')
     const that = this
     wx.getLocation({
       type: 'gcj02',
@@ -283,6 +283,7 @@ Page({
               wx.showToast({ title: '创建活动失败', icon: 'none' })
               return
             }
+            logDebug(this, '活动ID:  + activityId)
             that._cloudSyncedCount = 0
             that._lastCloudSyncAt = Date.now()
             that._appendInProgress = false
