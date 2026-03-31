@@ -1,6 +1,17 @@
 <!-- pages/activity-detail/activity-detail.wxml -->
 <view class="page-activity-detail">
-  <!-- 地图区域（根据抽屉状态调整高度） -->
+  <!-- 调试面板 -->
+  <view class="debug-panel" wx:if="{{debugMode}}">
+    <view class="debug-header">
+      <text>调试 ({{debugLogs.length}}条)</text>
+      <text class="debug-btn" bindtap="copyDebugLog">复制</text>
+    </view>
+    <scroll-view scroll-y="true" class="debug-content">
+      <view wx:for="{{debugLogs}}" wx:key="index" class="debug-line">{{item}}</view>
+    </scroll-view>
+  </view>
+
+  <!-- 地图区域 -->
   <map 
     id="detailMap"
     class="map-container {{showPanel ? 'map-short' : ''}}"

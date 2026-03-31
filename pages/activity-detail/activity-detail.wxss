@@ -180,3 +180,46 @@ page {
 .share-btn::after {
   border: none;
 }
+
+/* 调试面板 */
+.debug-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 20vh;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+}
+
+.debug-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 8rpx 16rpx;
+  background: #222;
+}
+
+.debug-header text {
+  font-size: 24rpx;
+  color: #888;
+}
+
+.debug-btn {
+  color: #4a90e2 !important;
+  font-weight: bold;
+}
+
+.debug-content {
+  flex: 1;
+  overflow-y: scroll;
+  padding: 8rpx;
+}
+
+.debug-line {
+  font-size: 22rpx;
+  color: #0f0;
+  font-family: monospace;
+  line-height: 1.4;
+}

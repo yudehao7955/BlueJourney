@@ -1,6 +1,9 @@
 const { buildMapPolylines, calculateDistance, calculateStats, formatDuration } = require('../../utils/track.js')
+const { logDebug, copyDebugLog } = require('../../utils/debug.js')
 
-// pages/activity-detail/activity-detail.js
+// 调试模式开关
+const DEBUG = require('../../utils/config.js').DEBUG_MODE
+
 Page({
   data: {
     activityId: null,
@@ -13,8 +16,10 @@ Page({
     scale: 14,
     subKey: 'G7KBZ-VLFCA-ZUFK2-CHSJA-XLK4F-YLFPY',
     stats: { distance: 0, duration: '00:00:00', avgSpeed: 0, maxSpeed: 0 },
-    // 新增：抽屉状态，默认收起
-    showPanel: false
+    showPanel: false,
+    // 调试相关
+    debugMode: DEBUG,
+    debugLogs: []
   },
 
   onLoad(options) {
@@ -86,12 +91,12 @@ Page({
 
   // 获取轨迹点
   getTrackPoints(activityId) {
-    console.log('[detail] 获取轨迹点:', activityId)
+    logDebug(this, '获取轨迹点: ' + activityId)
     wx.cloud.callFunction({
       name: 'activity',
       data: { action: 'getTrackPoints', activityId },
       success: (res) => {
-        console.log('[detail] 轨迹点返回:', res.result)
+        logDebug(this, '轨迹点返回: ' + JSON.stringify(res.result).substring(0, 100))
         if (res.result?.trackPoints) {
           this.processTrackPoints(res.result.trackPoints)
         } else {
@@ -99,7 +104,7 @@ Page({
         }
       },
       fail: (err) => {
-        console.log('[detail] 获取轨迹点失败:', err)
+        logDebug(this, '获取轨迹点失败: ' + err)
       }
     })
   },
@@ -179,5 +184,14 @@ Page({
       title: `我完成了 ${this.data.stats.distance}km 的划行！`,
       path: `/pages/activity-detail/activity-detail?id=${this.data.activityId}`
     }
+  },
+
+  // 复制调试日志
+  copyDebugLog() {
+    const logs = this.data.debugLogs.join('\n')
+    wx.setClipboardData({
+      data: logs,
+      success: () => wx.showToast({ title: '已复制', icon: 'success' })
+    })
   }
 })
