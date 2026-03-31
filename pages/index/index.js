@@ -573,7 +573,11 @@ Page({
     
     if (polylines.length === 0) {
       // 初始情况，全量计算
+      console.log('[index] 开始构建 polylines，点数:', newTrackPoints.length)
+      // 调试：初始构建时弹窗
+      wx.showToast({ title: `构建线: ${newTrackPoints.length}点`, icon: 'none', duration: 1500 })
       const result = buildMapPolylines(newTrackPoints)
+      console.log('[index] buildMapPolylines 结果:', JSON.stringify(result))
       polylines = result.polylines
       // 更新方向箭头 markers
       this.setData({
