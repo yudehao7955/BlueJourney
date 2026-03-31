@@ -586,7 +586,7 @@ Page({
     let polylines = this.data.polylines || []
     const basePolylineOptions = {
       color: '#0066CC',
-      width: 6,
+      width: 8,
       dottedLine: false,
       borderColor: '#004080',
       borderWidth: 2

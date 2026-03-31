@@ -8,8 +8,8 @@ function buildMapPolylines(points, opts = {}) {
   const baseWidth = opts.width || 6
   const borderColor = opts.borderColor || '#004080'
   const borderWidth = opts.borderWidth !== undefined ? opts.borderWidth : 2
-  const colorFrom = opts.colorFrom || '#b3d8ff' // 低速 - 浅蓝色
-  const colorTo = opts.colorTo || '#003f88'   // 高速 - 深蓝色
+  const colorFrom = opts.colorFrom || '#0066CC' // 低速 - 深蓝色
+  const colorTo = opts.colorTo || '#003366'   // 高速 - 深蓝
   const enableSpeedColor = opts.enableSpeedColor !== false // 默认开启根据速度变色
 
   if (!points || points.length === 0) {
