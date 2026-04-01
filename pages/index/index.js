@@ -114,11 +114,13 @@ Page({
     } catch (e) {
       this.setData({ debugMode: false })
     }
-    // 每次显示页面拉取最新队伍信息，保证人数和状态是最新的
+    logDebug(this, '=== 切到前台 ===', '[首页]')
+    // 每次显示页面拉取最新队伍信息，保证人数和状态是最新的（解决HOME-7-001：队员加入后首页不刷新人数问题）
     this.checkActiveActivity()
     this.checkActiveTeam()
   },
   onHide() {
+    logDebug(this, '=== 切到后台 ===', '[首页]')
     if (this.data.isRecording && this.data.activityId) {
       this.persistActiveTrackLocal()
     }
@@ -198,7 +200,6 @@ Page({
               this.setData({
                 latitude: res.latitude,
                 longitude: res.longitude,
-                showLocation: true,
                 markers: [{
                   id: 0,
                   latitude: res.latitude,
@@ -260,8 +261,7 @@ Page({
     wx.getLocation({
       type: 'gcj02',
       success: (res) => {
-        // 定位成功后开启 showLocation（此时已有授权，不会二次弹窗）
-        that.setData({ showLocation: true })
+        // 定位成功，不开启 showLocation 避免默认蓝色圆点
         
         // 先创建活动，获取 activityId
         wx.cloud.callFunction({

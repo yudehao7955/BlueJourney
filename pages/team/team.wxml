@@ -118,6 +118,31 @@
         <text class="input-label">队伍简介（选填）</text>
         <textarea class="input-textarea" placeholder="简单介绍一下这个队伍" value="{{newTeamDesc}}" bindinput="onTeamDescInput" maxlength="100"/>
       </view>
+      <view class="input-group">
+        <text class="input-label">最大人数</text>
+        <view class="radio-group">
+          <view class="radio-item {{newMaxMembers === 5 ? 'active' : ''}}" bindtap="selectMaxMembers" data-value="5">
+            <text>5人</text>
+          </view>
+          <view class="radio-item {{newMaxMembers === 10 ? 'active' : ''}}" bindtap="selectMaxMembers" data-value="10">
+            <text>10人</text>
+          </view>
+          <view class="radio-item {{newMaxMembers === 20 ? 'active' : ''}}" bindtap="selectMaxMembers" data-value="20">
+            <text>20人</text>
+          </view>
+        </view>
+      </view>
+      <view class="input-group">
+        <text class="input-label">公开队伍</text>
+        <view class="radio-group">
+          <view class="radio-item {{newIsPublic === true ? 'active' : ''}}" bindtap="selectIsPublic" data-value="true">
+            <text>公开（附近可见）</text>
+          </view>
+          <view class="radio-item {{newIsPublic === false ? 'active' : ''}}" bindtap="selectIsPublic" data-value="false">
+            <text>私有（仅邀请可见）</text>
+          </view>
+        </view>
+      </view>
     </view>
     <view class="modal-footer">
       <button class="modal-btn cancel" bindtap="closeCreateModal">取消</button>

@@ -1,4 +1,5 @@
 {
   "navigationBarTitleText": "组队大厅",
+  "enablePullDownRefresh": true,
   "usingComponents": {}
 }

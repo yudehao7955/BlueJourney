@@ -7,11 +7,27 @@ Page({
     showCreateModal: false,
     newTeamName: '',
     newTeamDesc: '',
+    newMaxMembers: 10,  // 默认最大人数 10
+    newIsPublic: true,  // 默认公开
     currentOpenid: ''
   },
 
   onLoad(options) {
     this.getCurrentUser()
+    // 获取当前用户位置，用于计算附近队伍距离
+    wx.getLocation({
+      type: 'gcj02',
+      success: (res) => {
+        this.setData({
+          userLatitude: res.latitude,
+          userLongitude: res.longitude
+        })
+      },
+      fail: () => {
+        // 没有权限就不计算距离，不影响使用
+        console.log('[team] 获取用户位置失败，附近队伍无法计算距离')
+      }
+    })
     // 处理二维码邀请：扫码进来直接加入队伍
     if (options.teamId && options.action === 'join') {
       setTimeout(() => {
@@ -36,6 +52,12 @@ Page({
 
   onShow() {
     this.getTeams()
+  },
+
+  // 下拉刷新
+  onPullDownRefresh() {
+    this.getTeams()
+    // 接口完成后会调用 stopPullDownRefresh
   },
 
   // 获取当前用户信息
@@ -83,13 +105,32 @@ Page({
     this.setData({ loading: true })
     
     const action = this.data.activeTab === 'my' ? 'getMyTeams' : 'getNearbyTeams'
+    const currentOpenid = this.data.currentOpenid
     
     wx.cloud.callFunction({
       name: 'team',
-      data: { action },
+      data: { 
+        action,
+        // 获取附近队伍时需要当前用户位置计算距离
+        ...(action === 'getNearbyTeams' && {
+          longitude: this.data.userLongitude || null,
+          latitude: this.data.userLatitude || null
+        })
+      },
       success: (res) => {
         if (res.result?.success) {
-          this.setData({ teams: res.result.teams || [] })
+          let teams = res.result.teams || []
+          
+          // 附近队伍：过滤掉当前用户已经加入的队伍
+          if (this.data.activeTab === 'nearby' && currentOpenid) {
+            teams = teams.filter(team => {
+              // 检查当前用户是否已经在队伍中
+              const isMember = team.members?.some(m => m.openid === currentOpenid)
+              return !isMember
+            })
+          }
+          
+          this.setData({ teams })
         }
       },
       fail: (err) => {
@@ -98,6 +139,8 @@ Page({
       },
       complete: () => {
         this.setData({ loading: false })
+        // 停止下拉刷新
+        wx.stopPullDownRefresh()
       }
     })
   },
@@ -113,7 +156,9 @@ Page({
     this.setData({ 
       showCreateModal: true,
       newTeamName: '',
-      newTeamDesc: ''
+      newTeamDesc: '',
+      newMaxMembers: 10,
+      newIsPublic: true
     })
   },
 
@@ -130,6 +175,18 @@ Page({
   // 输入队伍描述
   onTeamDescInput(e) {
     this.setData({ newTeamDesc: e.detail.value })
+  },
+
+  // 选择最大人数
+  selectMaxMembers(e) {
+    const value = parseInt(e.currentTarget.dataset.value, 10)
+    this.setData({ newMaxMembers: value })
+  },
+
+  // 选择是否公开
+  selectIsPublic(e) {
+    const value = e.currentTarget.dataset.value === 'true'
+    this.setData({ newIsPublic: value })
   },
 
   // 确认创建队伍
@@ -157,15 +214,17 @@ Page({
 
   // 执行创建队伍
   doCreateTeam(location) {
+    const { newTeamName, newTeamDesc, newMaxMembers, newIsPublic } = this.data
     wx.cloud.callFunction({
       name: 'team',
       data: {
         action: 'create',
         data: {
-          teamName: this.data.newTeamName,
-          description: this.data.newTeamDesc,
+          teamName: newTeamName,
+          description: newTeamDesc,
           location: location,
-          maxMembers: 10
+          maxMembers: newMaxMembers,
+          isPublic: newIsPublic
         }
       },
       success: (res) => {

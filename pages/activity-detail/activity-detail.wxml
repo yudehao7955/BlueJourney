@@ -24,7 +24,7 @@
     scale="14"
     polyline="{{polylines}}"
     markers="{{markers}}"
-    show-location
+    show-location="{{false}}"
     subkey="{{subKey}}"
     enable-rotate="false"
   ></map>

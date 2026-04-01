@@ -11,8 +11,10 @@ async function fetchAllTrackPointsByActivity(activityId) {
   let all = []
   let skip = 0
   for (;;) {
+    // 修复：activityId 可能是字符串（来自前端传入），数据库存储也是字符串
+    // 如果 activityId 是 _id (ObjectId) 需要转换，但我们存的就是字符串，直接查询
     const res = await db.collection('track_points')
-      .where({ activityId })
+      .where({ activityId: activityId })
       .orderBy('pointOrder', 'asc')
       .skip(skip)
       .limit(TRACK_PAGE)
@@ -21,6 +23,7 @@ async function fetchAllTrackPointsByActivity(activityId) {
     if (res.data.length < TRACK_PAGE) break
     skip += TRACK_PAGE
   }
+  console.log(`[fetchAllTrackPointsByActivity] ${activityId} -> ${all.length} points found`)
   return all
 }
 
@@ -527,7 +530,8 @@ async function saveBatchTrackPoints(openid, activityId, points) {
       return { success: false, error: '无权限' }
     }
 
-    await db.collection('track_points').where({ activityId }).remove()
+    // 修复：使用字符串 activityId 查询，保证和增量添加保存一致
+    await db.collection('track_points').where({ activityId: activityId }).remove()
 
     if (!points || points.length === 0) {
       return { success: true, count: 0 }
@@ -537,7 +541,7 @@ async function saveBatchTrackPoints(openid, activityId, points) {
     for (const point of points) {
       const result = await db.collection('track_points').add({
         data: {
-          activityId: activityId,
+          activityId: activityId,  // 保持字符串，和增量添加一致
           userId: point.userId || '',
           pointOrder: point.pointOrder,
           latitude: point.latitude,
@@ -545,13 +549,14 @@ async function saveBatchTrackPoints(openid, activityId, points) {
           speed: point.speed || 0,
           accuracy: point.accuracy || 0,
           heading: point.heading || 0,
-          timestamp: point.timestamp || db.serverDate(),
+          timestamp: point.timestamp ? new Date(point.timestamp) : db.serverDate(),
           createTime: db.serverDate()
         }
       })
       results.push(result._id)
     }
 
+    console.log(`[saveBatchTrackPoints] saved ${results.length} points for activity ${activityId}`)
     return {
       success: true,
       count: results.length,

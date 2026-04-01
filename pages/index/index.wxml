@@ -81,11 +81,14 @@
     </view>
   </view>
 
-  <!-- 当前位置标记 -->
+  <!-- 当前位置标记 - 这个是悬浮在地图上方中央的定位指示器，不是 markers 里的绿色起点标记 -->
+  <!-- 原设计者留下，用户反馈蓝色圆点影响体验故注释掉，若需要可恢复 -->
+  <!--
   <view class="location-marker">
     <view class="marker-pulse"></view>
     <view class="marker-dot"></view>
   </view>
+  -->
 
   <!-- 底部控制面板 -->
   <view class="bottom-panel">
