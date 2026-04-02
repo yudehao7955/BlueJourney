@@ -190,6 +190,14 @@ page {
   background: rgba(82, 196, 26, 0.1);
 }
 
+.menu-icon.bg-red {
+  background: rgba(255, 82, 82, 0.1);
+}
+
+.menu-icon-text {
+  font-size: 36rpx;
+}
+
 .menu-content {
   flex: 1;
 }

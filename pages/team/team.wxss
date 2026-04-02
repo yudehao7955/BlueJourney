@@ -311,7 +311,7 @@ page {
   z-index: 201;
   transform: translateY(100%);
   transition: transform 0.3s ease;
-  max-height: 60vh;  /* 只占用最多60%屏幕高度，节省空间 */
+  max-height: 90vh;  /* 只占用最多60%屏幕高度，节省空间 */
 }
 
 .modal-content.show {

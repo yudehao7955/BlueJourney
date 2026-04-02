@@ -5,11 +5,13 @@ const { buildMapPolylines, calculateDistance, calculateStats, formatDuration } =
 const { saveActiveTrackSession, clearActiveTrackSession } = require('../../utils/track-session.js')
 const { logDebug, copyDebugLog, clearDebugLog } = require('../../utils/debug.js')
 
-// 轨迹采集配置
+// 轨迹采集配置（优化方案参数）
 const CONFIG = Object.freeze({
   MIN_ACCURACY: 1000,
-  MIN_DISTANCE: 2,
-  MIN_TIME_INTERVAL: 2000,  // 调整为 2 秒，降低采集频率
+  TIME_THRESHOLD: 3000,      // 时间阈值（毫秒）- 双过滤
+  DISTANCE_THRESHOLD: 10,    // 距离阈值（米）- 双过滤
+  MAX_RENDER_POINTS: 1500,   // 最大渲染点数，超过则抽稀
+  ABNORMAL_SPEED: 50,        // 异常速度阈值（米/秒）- GPS漂移过滤
   MIN_SPEED: 0,
   MAX_SPEED: 500,
   STOP_SPEED_THRESHOLD: 0.5,  // km/h 低于此速度视为可能停止（已放宽判断）
@@ -17,7 +19,7 @@ const CONFIG = Object.freeze({
   STOP_MOVE_THRESHOLD: 5,  // 移动距离阈值（米），超过此距离视为移动中
   KALMAN_PROCESS_NOISE: 0.01,
   KALMAN_MEASUREMENT_NOISE: 10,
-  RENDER_INTERVAL_MS: 2000  // 界面渲染最小间隔（节流）
+  RENDER_INTERVAL_MS: 1000  // 界面渲染刷新间隔（低频渲染）
 })
 
 // DEBUG_MODE 从 config.js 引入
@@ -72,10 +74,11 @@ Page({
     totalPauseTime: 0,  // 总暂停时长（毫秒）
     timerInterval: null,
     lastRecordTime: 0,  // 最后记录时间
-    lastRenderTime: 0,  // 最后界面渲染时间（用于节流）
+    renderTimer: null,  // 地图渲染定时器（低频渲染）
     currentActivity: null,
     enableSatellite: false,
-    trackPoints: [],
+    trackPoints: [],     // 原始数据层（所有经过过滤的点）
+    renderPoints: 0,     // 渲染点数统计
     activityId: null,
     currentDistance: '0.00',
     currentSpeed: '0.0',
@@ -90,6 +93,11 @@ Page({
     debugScrollTop: 0,
     debugPanelCollapsed: false
   },
+
+  // 内存存储（不触发渲染）- 优化方案：高频采集低频渲染
+  rawLocations: [],      // 原始点内存存储（所有通过过滤的点）
+  lastLocation: null,    // 上一个原始点（用于计算距离和速度）
+  totalDistance: 0,      // 总距离（内存累加，减少计算）
   onLoad() {
     // 绑定位置变化回调，确保 this 正确
     this.handleLocationChangeBound = (res) => {
@@ -286,8 +294,19 @@ Page({
             // 初始化卡尔曼滤波器（平滑GPS位置）
             that.latFilter = new KalmanFilter(CONFIG.KALMAN_PROCESS_NOISE, CONFIG.KALMAN_MEASUREMENT_NOISE)
             that.lngFilter = new KalmanFilter(CONFIG.KALMAN_PROCESS_NOISE, CONFIG.KALMAN_MEASUREMENT_NOISE)
+            // 初始化优化方案内存存储
+            that.rawLocations = []
+            that.totalDistance = 0
+            const firstPoint = { 
+              latitude: res.latitude, 
+              longitude: res.longitude, 
+              speed: 0, 
+              timestamp: Date.now() 
+            }
+            that.lastLocation = firstPoint
+            that.rawLocations.push(firstPoint)
+            
             // 初始化停留点检测
-            const firstPoint = { latitude: res.latitude, longitude: res.longitude, speed: 0, timestamp: Date.now() }
             that.setData({
               activityId,  // 保存 activityId
               isRecording: true,
@@ -295,7 +314,7 @@ Page({
               stopStartTime: null,
               isStopped: false,
               trackPoints: [firstPoint],
-              lastRenderTime: Date.now(),
+              renderPoints: that.rawLocations.length,
               currentDistance: '0.00',
               currentSpeed: '0.0',
               markers: [{ id: 0, latitude: res.latitude, longitude: res.longitude, width: 30, height: 30 }]
@@ -303,6 +322,8 @@ Page({
             that.startTimer()
             wx.showToast({ title: '开始记录', icon: 'success' })
             that.startLocationUpdate()
+            // 启动低频渲染定时器（优化方案核心）
+            that.data.renderTimer = setInterval(() => that.refreshMap(), CONFIG.RENDER_INTERVAL_MS)
             that.persistActiveTrackLocal()
           },
           fail: () => {
@@ -355,6 +376,11 @@ Page({
       pauseStartTime: null,
       totalPauseTime: 0
     })
+    // 停止低频渲染定时器
+    if (this.data.renderTimer) {
+      clearInterval(this.data.renderTimer)
+      this.data.renderTimer = null
+    }
     this.stopLocationUpdate()
     this.stopTimer()
     wx.showToast({ title: '已停止', icon: 'success' })
@@ -470,6 +496,10 @@ Page({
       clearInterval(this.data.locationTimer)
       this.data.locationTimer = null
     }
+    if (this.data.renderTimer) {
+      clearInterval(this.data.renderTimer)
+      this.data.renderTimer = null
+    }
     wx.stopLocationUpdate()
     wx.offLocationChange()
   },
@@ -502,15 +532,12 @@ Page({
     this.stopLocationUpdate()
     this.stopTimer()
   },
-  // 处理位置更新
+  // 处理位置更新（优化方案：高频采集存入内存，不每次渲染）
   handleLocationUpdate(res) {
     const now = Date.now()
-    // 统一从 data 读取 trackPoints，保证一致性
-    const trackPoints = this.data.trackPoints || []
-    const lastPoint = trackPoints[trackPoints.length - 1]
-    
+    const last = this.lastLocation
+
     // 1. 精度过滤：精度大于CONFIG.MIN_ACCURACY米的点不记录（accuracy越小越精确）
-    // 处理 accuracy 不存在的兼容情况
     if (res.accuracy !== undefined && res.accuracy > CONFIG.MIN_ACCURACY) {
       if (DEBUG_MODE) {
         logDebug(this, `过滤: 精度${res.accuracy}m > ${CONFIG.MIN_ACCURACY}m`)
@@ -532,192 +559,209 @@ Page({
     const filteredLat = this.latFilter.filter(res.latitude)
     const filteredLng = this.lngFilter.filter(res.longitude)
     
-    // 3. 计算时间间隔
-    const lastRecordTime = this.data.lastRecordTime || 0
-    const timeInterval = now - lastRecordTime
-    
-    // 4. 计算移动距离（使用滤波后的坐标）
-    const distance = lastPoint ? calculateDistance(lastPoint.latitude, lastPoint.longitude, filteredLat, filteredLng) : 0
-    
-    // 5. 计算速度（优先用 GPS 速度，否则用距离计算）
-    const speedKmh = res.speed > 0 ? res.speed * 3.6 : (distance / (timeInterval / 1000) * 3.6) || 0
-    
-    // 调试日志：包含当前长度、上一个点、当前点、移动距离
-    if (DEBUG_MODE) {
-      const lastPt = lastPoint ? `${lastPoint.latitude?.toFixed(5)},${lastPoint.longitude?.toFixed(5)}` : 'null'
-      logDebug(this, `[handleLocationUpdate] trackPoints长度=${trackPoints.length} 上:${lastPt} 当前:${filteredLat.toFixed(5)},${filteredLng.toFixed(5)} 距:${distance.toFixed(0)}m 速:${speedKmh.toFixed(1)}km/h`, '首页')
+    // ===== 优化方案：异常速度过滤（GPS漂移）=====
+    // 计算瞬时速度（米/秒），异常高速点直接丢弃
+    if (last) {
+      const deltaTime = (now - last.timestamp) / 1000
+      const distance = this.calculateDistance(last.latitude, last.longitude, filteredLat, filteredLng)
+      const speed = distance / deltaTime
+      if (speed > CONFIG.ABNORMAL_SPEED && deltaTime > 0) {
+        if (DEBUG_MODE) {
+          logDebug(this, `丢弃异常漂移点: 速度 ${speed.toFixed(2)}m/s > ${CONFIG.ABNORMAL_SPEED}m/s`)
+        }
+        return
+      }
     }
     
-    // ===== 停留点检测 =====
-    // 只要移动距离超过阈值（5米），就视为在移动，不判断速度
-    const isMoving = distance >= CONFIG.STOP_MOVE_THRESHOLD
+    // ===== 优化方案：双阈值过滤（时间+距离）=====
+    // 只有满足时间阈值或距离阈值才存入原始层
+    const timeDiff = last ? now - last.timestamp : Infinity
+    const distanceDiff = last ? this.calculateDistance(last.latitude, last.longitude, filteredLat, filteredLng) : Infinity
     
-    // 如果从停留模式恢复移动，需要记录当前点作为新起点，保证轨迹连续
-    const wasStopped = this.data.isStopped
-    
-    if (trackPoints.length < 2) {
-      // 不足两个点，不做停留检测，直接记录，保证至少有两个点才能画线
-    } else {
-      // 速度低于阈值且移动距离不足，可能是静止
-      if (!isMoving && speedKmh < CONFIG.STOP_SPEED_THRESHOLD) {
-        if (!this.data.stopStartTime) {
-          // 刚开始静止，记录开始时间
-          this.setData({ stopStartTime: now })
-        } else if (now - this.data.stopStartTime >= CONFIG.STOP_DURATION_THRESHOLD) {
-          // 静止超过阈值，进入停止模式，不再记录新点（只更新地图中心）
-          if (!this.data.isStopped) {
-            console.log(`[index] 进入停留模式，静止超过 ${CONFIG.STOP_DURATION_THRESHOLD / 1000} 秒，停止记录新点`)
-            this.setData({ isStopped: true })
+    if (!last || timeDiff >= CONFIG.TIME_THRESHOLD || distanceDiff >= CONFIG.DISTANCE_THRESHOLD) {
+      // 当前点通过过滤，存入原始层
+      const point = {
+        latitude: filteredLat,
+        longitude: filteredLng,
+        speed: res.speed > 0 ? res.speed * 3.6 : (distanceDiff / (timeDiff / 1000) * 3.6) || 0,
+        accuracy: res.accuracy,
+        heading: res.direction,
+        timestamp: now
+      }
+      
+      // ===== 停留点检测 =====
+      // 如果从停留模式恢复移动，当前点已在原始层，保证轨迹连续
+      const wasStopped = this.data.isStopped
+      const isMoving = distanceDiff >= CONFIG.STOP_MOVE_THRESHOLD
+      
+      if (this.rawLocations.length < 2) {
+        // 不足两个点，不做停留检测
+      } else {
+        // 速度低于阈值且移动距离不足，可能是静止
+        if (!isMoving && point.speed < CONFIG.STOP_SPEED_THRESHOLD) {
+          if (!this.data.stopStartTime) {
+            this.setData({ stopStartTime: now })
+          } else if (now - this.data.stopStartTime >= CONFIG.STOP_DURATION_THRESHOLD) {
+            if (!this.data.isStopped) {
+              console.log(`[index] 进入停留模式，静止超过 ${CONFIG.STOP_DURATION_THRESHOLD / 1000} 秒`)
+              this.setData({ isStopped: true })
+            }
+            this.setData({
+              latitude: filteredLat,
+              longitude: filteredLng
+            })
+            return
           }
-          this.setData({
-            latitude: filteredLat,
-            longitude: filteredLng
-          })
-          return
-        }
-      } else {
-        // 恢复移动，重置停留检测
-        if (this.data.isStopped) {
-          console.log(`[index] 恢复移动，重新开始记录`)
-          this.setData({ 
-            stopStartTime: null, 
-            isStopped: false 
-          })
-          // 恢复移动时，当前点会被记录为新起点，保证轨迹连续
         } else {
-          this.setData({ 
-            stopStartTime: null
-          })
+          if (this.data.isStopped) {
+            console.log(`[index] 恢复移动，重新开始记录`)
+            this.setData({ 
+              stopStartTime: null, 
+              isStopped: false 
+            })
+          } else {
+            this.setData({ stopStartTime: null })
+          }
         }
       }
-    }
-    
-    // 6. 判断是否需要记录
-    const shouldRecord = !lastPoint || 
-      timeInterval >= CONFIG.MIN_TIME_INTERVAL || 
-      (distance >= CONFIG.MIN_DISTANCE)
-    
-    if (!shouldRecord && !wasStopped) {
-      if (DEBUG_MODE) {
-        logDebug(this, `过滤: 距${distance.toFixed(1)}m 时${timeInterval}ms`)
+      
+      // 更新原始数据层（内存存储）
+      this.rawLocations.push(point)
+      this.lastLocation = point
+      
+      // 更新总距离（内存累加）
+      if (last) {
+        this.totalDistance += distanceDiff
       }
-      // 即使不记录轨迹，也要更新地图中心
+      
+      // 更新 data 中的 trackPoints（用于云同步和最终保存）
+      this.setData({
+        trackPoints: this.rawLocations,
+        renderPoints: this.rawLocations.length,
+        lastRecordTime: now
+      })
+      
+      // 更新地图中心跟随移动
       this.setData({
         latitude: filteredLat,
         longitude: filteredLng
       })
-      return
-    }
-
-    // 异常高速跳点（多为 GPS 漂移），不写入轨迹
-    if (lastPoint && speedKmh > CONFIG.MAX_SPEED) {
-      this.setData({
-        latitude: filteredLat,
-        longitude: filteredLng
-      })
-      console.log(`[index] 点被过滤：速度 ${speedKmh.toFixed(1)}km/h > ${CONFIG.MAX_SPEED}km/h`)
-      return
-    }
-    
-    // 记录轨迹点（使用滤波后的坐标）
-    const newPoint = { 
-      latitude: filteredLat, 
-      longitude: filteredLng, 
-      speed: speedKmh, 
-      accuracy: res.accuracy, 
-      heading: res.direction, 
-      timestamp: now 
-    }
-    const newTrackPoints = [...trackPoints, newPoint]
-    
-    const prevMeters = parseFloat(this.data.currentDistance) * 1000 || 0
-    const totalMeters = prevMeters + distance
-
-    // 更新记录时间
-    this.setData({ lastRecordTime: now })
-    
-    // 计算运动时长（排除暂停时间）
-    let activeDuration = now - this.data.startTime - this.data.totalPauseTime
-    if (this.data.isPaused && this.data.pauseStartTime) {
-      activeDuration -= (now - this.data.pauseStartTime)
-    }
-    activeDuration = Math.max(0, activeDuration)
-    
-    // ===== 增量更新 polylines（不需要全量重计算，提升性能）=====
-    let polylines = this.data.polylines || []
-    let directionMarkers = this.data.markers || []
-    const basePolylineOptions = {
-      color: '#0066CC',
-      width: 8,
-      dottedLine: false,
-      borderColor: '#004080',
-      borderWidth: 2
-    }
-    
-    if (polylines.length === 0) {
-      // 初始情况，全量计算
+      
       if (DEBUG_MODE) {
-        logDebug(this, `初始:新${newTrackPoints.length}点 已有${trackPoints.length}点 全量构建`, '首页')
+        logDebug(this, `[采集] 原始点数=${this.rawLocations.length} 距离=${this.totalDistance.toFixed(0)}m`, '首页')
       }
-      const result = buildMapPolylines(newTrackPoints)
-      // buildMapPolylines 可能直接返回数组，也可能返回 { polylines, directionMarkers }
-      if (Array.isArray(result)) {
-        polylines = result
-        directionMarkers = []
-      } else {
-        polylines = result.polylines
-        directionMarkers = result.directionMarkers || []
-      }
+    }
+  },
+
+  // 定时刷新地图（优化方案核心：低频渲染 + 抽稀 + 差分更新）
+  refreshMap() {
+    if (!this.data.isRecording) return
+
+    // 获取抽稀后的渲染点集
+    const renderPoints = this.getRenderPoints()
+    const directionMarkers = this.data.markers || []
+    
+    // 全量构建 polylines（抽稀后点数可控，性能足够）
+    const result = buildMapPolylines(renderPoints)
+    let polylines
+    if (Array.isArray(result)) {
+      polylines = result
     } else {
-      // 增量更新：追加到最后一段
-      const lastSegment = polylines[polylines.length - 1]
-      if (lastSegment.points.length < 400) {
-        lastSegment.points.push(newPoint)
-      } else {
-        const prevLastPoint = lastSegment.points[lastSegment.points.length - 1]
-        polylines.push({ ...basePolylineOptions, points: [prevLastPoint, newPoint] })
-      }
+      polylines = result.polylines
     }
     
-    // 打印 setData 前的 polylines 内容（只打印一次）
-    if (DEBUG_MODE) {
-      logDebug(this, `setData: polylines=${polylines.length}段 第1段${polylines[0]?.points?.length || 0}点`, '首页')
-    }
-    
-    // 节流控制：仅在达到时间间隔超过阈值时更新界面，减少不必要渲染
-    const lastRenderTime = this.data.lastRenderTime || 0
-    const needRender = (now - lastRenderTime >= CONFIG.RENDER_INTERVAL_MS) || wasStopped
-    
-    // 计算统计数据
-    const stats = calculateStats(newTrackPoints)
-    
-    // 需要渲染时才更新 polylines 和 markers，减少 setData 数据量
-    const updateData = {
-      trackPoints: newTrackPoints,
-      latitude: filteredLat,
-      longitude: filteredLng,
-      currentDistance: stats.distance.toFixed(2),
-      currentSpeed: speedKmh.toFixed(1),
-      currentDuration: formatDuration(Math.max(0, activeDuration)),
-      lastRecordTime: now
-    }
-    
-    if (needRender) {
-      updateData.polylines = polylines
-      updateData.markers = directionMarkers
-      updateData.lastRenderTime = now
-    }
-    
-    // 统一更新数据
-    this.setData(updateData, () => {
+    // 差分更新：仅更新 polyline，减少 setData 数据量
+    const stats = calculateStats(this.rawLocations)
+    this.setData({
+      'polylines': polylines,
+      'markers': directionMarkers,
+      currentDistance: (this.totalDistance / 1000).toFixed(2),
+      renderPoints: renderPoints.length
+    }, () => {
       this.persistActiveTrackLocal()
       this.tryCloudIncrementalSync()
     })
   },
+
+  // 获取渲染点集（必要时抽稀）
+  getRenderPoints() {
+    let points = this.rawLocations.map(p => ({
+      latitude: p.latitude,
+      longitude: p.longitude
+    }))
+    if (points.length > CONFIG.MAX_RENDER_POINTS) {
+      const before = points.length
+      points = this.simplifyPoints(points, 0.00005)
+      if (DEBUG_MODE) {
+        logDebug(this, `抽稀完成: ${before} -> ${points.length}`, '首页')
+      }
+    }
+    return points
+  },
+
+  // 道格拉斯-普克抽稀算法（优化方案：控制渲染点数量）
+  simplifyPoints(points, tolerance) {
+    if (points.length <= 2) return points
+    let maxDist = 0, maxIdx = 0
+    for (let i = 1; i < points.length - 1; i++) {
+      const dist = this.perpendicularDistance(points[i], points[0], points[points.length - 1])
+      if (dist > maxDist) {
+        maxDist = dist
+        maxIdx = i
+      }
+    }
+    if (maxDist > tolerance) {
+      const left = this.simplifyPoints(points.slice(0, maxIdx + 1), tolerance)
+      const right = this.simplifyPoints(points.slice(maxIdx), tolerance)
+      return left.slice(0, -1).concat(right)
+    } else {
+      return [points[0], points[points.length - 1]]
+    }
+  },
+
+  // 计算点到直线的垂直距离（用于抽稀算法）
+  perpendicularDistance(point, start, end) {
+    const dx = end.longitude - start.longitude
+    const dy = end.latitude - start.latitude
+    if (dx === 0 && dy === 0) {
+      return Math.hypot(point.longitude - start.longitude, point.latitude - start.latitude)
+    }
+    const t = ((point.longitude - start.longitude) * dx + (point.latitude - start.latitude) * dy) / (dx*dx + dy*dy)
+    if (t < 0) return Math.hypot(point.longitude - start.longitude, point.latitude - start.latitude)
+    if (t > 1) return Math.hypot(point.longitude - end.longitude, point.latitude - end.latitude)
+    const projX = start.longitude + t * dx
+    const projY = start.latitude + t * dy
+    return Math.hypot(point.longitude - projX, point.latitude - projY)
+  },
+
+  // 计算两点间距离（米）- 哈弗辛公式（用于优化方案的距离计算）
+  calculateDistance(p1, p2, lat1, lng2) {
+    // 支持两种调用方式：calculateDistance(p1, p2) 或 calculateDistance(lat1, lng1, lat2, lng2)
+    let rLat1, rLng1, rLat2, rLng2
+    if (typeof p2 === 'number') {
+      rLat1 = p1 * Math.PI / 180
+      rLng1 = lat1 * Math.PI / 180
+      rLat2 = lat1 * Math.PI / 180
+      rLng2 = p2 * Math.PI / 180
+    } else {
+      rLat1 = p1.latitude * Math.PI / 180
+      rLng1 = p1.longitude * Math.PI / 180
+      rLat2 = p2.latitude * Math.PI / 180
+      rLng2 = p2.longitude * Math.PI / 180
+    }
+    const R = 6371000 // 地球半径（米）
+    const deltaLat = rLat2 - rLat1
+    const deltaLng = rLng2 - rLng1
+    const a = Math.sin(deltaLat/2) ** 2 + Math.cos(rLat1) * Math.cos(rLat2) * Math.sin(deltaLng/2) ** 2
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+    return R * c
+  },
+
+  // 本地持久化：进行中划行会话（防崩溃/杀进程）
   // 本地持久化：进行中划行会话（防崩溃/杀进程）
   buildPersistPayload() {
     return {
-      v: 1,
+      v: 2,  // 版本 2 支持优化方案
       activityId: this.data.activityId,
       trackPoints: this.data.trackPoints,
       startTime: this.data.startTime,
@@ -725,8 +769,11 @@ Page({
       isPaused: this.data.isPaused,
       pauseStartTime: this.data.pauseStartTime,
       lastRecordTime: this.data.lastRecordTime,
-      currentDistance: this.data.currentDistance,
+      currentDistance: (this.totalDistance / 1000).toFixed(2),
       cloudSyncedCount: this._cloudSyncedCount || 0,
+      totalDistance: this.totalDistance,
+      rawLocations: this.rawLocations,
+      lastLocation: this.lastLocation,
       savedAt: Date.now()
     }
   },
@@ -1082,9 +1129,14 @@ Page({
             isStopped: false
           })
 
-          // 初始化卡尔曼滤波器
+          // 初始化优化方案内存存储
+          that._cloudSyncedCount = 0
+          that._lastCloudSyncAt = Date.now()
+          that._appendInProgress = false
           that.latFilter = new KalmanFilter(CONFIG.KALMAN_PROCESS_NOISE, CONFIG.KALMAN_MEASUREMENT_NOISE)
           that.lngFilter = new KalmanFilter(CONFIG.KALMAN_PROCESS_NOISE, CONFIG.KALMAN_MEASUREMENT_NOISE)
+          that.rawLocations = []
+          that.totalDistance = 0
           
           // 获取轨迹点，恢复地图显示
           wx.cloud.callFunction({
@@ -1092,46 +1144,39 @@ Page({
             data: { action: 'getTrackPoints', activityId: activity._id },
             success: (trackRes) => {
               if (trackRes.result?.trackPoints) {
+                // 恢复到优化方案内存结构
+                that.rawLocations = trackRes.result.trackPoints
+                that.totalDistance = calculateStats(trackRes.result.trackPoints).distance * 1000
+                that.lastLocation = that.rawLocations[that.rawLocations.length - 1]
                 that.setData({
-                  trackPoints: trackRes.result.trackPoints
+                  trackPoints: that.rawLocations,
+                  renderPoints: that.rawLocations.length
                 })
                 // 重置增量同步计数（关键修复：恢复后 _cloudSyncedCount 需要与 trackPoints 长度一致）
                 that._cloudSyncedCount = trackRes.result.trackPoints.length
                 that._lastCloudSyncAt = Date.now()
                 
-                // 重新构建polylines显示（恢复时全量计算）
-                const result = buildMapPolylines(trackRes.result.trackPoints)
-                // buildMapPolylines 可能直接返回数组，也可能返回 { polylines, directionMarkers }
-                if (Array.isArray(result)) {
-                  that.setData({
-                    polylines: result,
-                    markers: []
-                  })
-                } else {
-                  that.setData({
-                    polylines: result.polylines,
-                    markers: result.directionMarkers || []
-                  })
-                }
+                // 获取抽稀后的渲染点并刷新地图
+                that.refreshMap()
                 
                 // 用最后一个点初始化卡尔曼滤波
-                if (trackRes.result.trackPoints.length > 0) {
-                  const last = trackRes.result.trackPoints[trackRes.result.trackPoints.length - 1]
+                if (that.rawLocations.length > 0) {
+                  const last = that.rawLocations[that.rawLocations.length - 1]
                   that.latFilter.filter(last.latitude)
                   that.lngFilter.filter(last.longitude)
                 }
                 
-                // 计算统计数据（使用 utils/track.js 导出的 calculateStats）
-                if (trackRes.result.trackPoints.length > 0) {
-                  const stats = calculateStats(trackRes.result.trackPoints)
+                // 计算统计数据
+                if (that.rawLocations.length > 0) {
+                  const stats = calculateStats(that.rawLocations)
                   that.setData({
-                    currentDistance: stats.distance.toFixed(2),
+                    currentDistance: (that.totalDistance / 1000).toFixed(2),
                     currentSpeed: stats.avgSpeed.toFixed(1),
                     currentDuration: formatDuration(stats.durationMs)
                   })
                   
                   // 地图中心移动到最后一个点
-                  const lastPoint = trackRes.result.trackPoints[trackRes.result.trackPoints.length - 1]
+                  const lastPoint = that.rawLocations[that.rawLocations.length - 1]
                   that.setData({
                     latitude: lastPoint.latitude,
                     longitude: lastPoint.longitude
@@ -1141,9 +1186,10 @@ Page({
             }
           })
           
-          // 重启位置采集和计时器
+          // 重启位置采集、计时器和低频渲染
           that.startLocationUpdate()
           that.startTimer()
+          that.data.renderTimer = setInterval(() => that.refreshMap(), CONFIG.RENDER_INTERVAL_MS)
           
           // 恢复本地会话存储
           saveActiveTrackSession({
@@ -1275,10 +1321,17 @@ Page({
                   icon: 'success', 
                   duration: 2000 
                 })
-                // 清空本地状态
+                // 清空本地状态（包含优化方案新增的内存变量和定时器）
                 that._cloudSyncedCount = 0
                 that._lastCloudSyncAt = 0
                 that._appendInProgress = false
+                that.rawLocations = []
+                that.totalDistance = 0
+                that.lastLocation = null
+                if (that.data.renderTimer) {
+                  clearInterval(that.data.renderTimer)
+                  that.data.renderTimer = null
+                }
                 that.setData({
                   activityId: null,
                   trackPoints: [],
@@ -1288,7 +1341,8 @@ Page({
                   currentDuration: '00:00:00',
                   isRecording: false,
                   isPaused: false,
-                  currentActivity: null
+                  currentActivity: null,
+                  renderPoints: 0
                 })
               } else {
                 wx.showToast({ title: res.result?.error || '清空失败', icon: 'none' })

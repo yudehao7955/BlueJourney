@@ -1,7 +1,16 @@
 {
   "description": "蓝旅(BlueJourney) - 桨板/皮划艇社交运动应用",
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      {
+        "type": "glob",
+        "value": "cloudfunctions/**/node_modules/**"
+      },
+      {
+        "type": "glob",
+        "value": "cloudfunctions/**/miniprogram_npm/**"
+      }
+    ],
     "include": []
   },
   "setting": {
@@ -46,6 +55,7 @@
     "disableSWC": true
   },
   "compileType": "miniprogram",
+  "miniprogramRoot": "./",
   "libVersion": "2.19.4",
   "appid": "wx37a8561526342593",
   "projectname": "BlueJourney",

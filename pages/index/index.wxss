@@ -264,6 +264,8 @@ page {
   left: 30rpx;
   right: 30rpx;
   z-index: 100;
+  /* 增加底部padding避免被安全区域遮挡弹窗 */
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .data-card {

@@ -86,6 +86,9 @@ exports.main = async (event, context) => {
       case 'deleteActivity':
         return await deleteActivity(wxContext.OPENID, event.activityId)
 
+      case 'clearAll':
+        return await clearAll(wxContext.OPENID)
+
       default:
         return { success: false, error: '未知操作' }
     }
@@ -619,15 +622,25 @@ async function updateActivityDistance(openid, activityId, optimizedDistance) {
 // 清空所有活动和轨迹点（调试用，只能删除当前用户自己的数据）
 async function clearAll(openid) {
   try {
-    // 删除所有activities
+    // 先获取用户ID
+    const userRes = await db.collection('users').where({
+      openid: openid
+    }).get()
+    
+    if (!userRes.data || userRes.data.length === 0) {
+      return { success: true, deletedActivities: 0, deletedTrackPoints: 0 }
+    }
+    const userId = userRes.data[0]._id
+
+    // 删除用户所有activities
     const activitiesRes = await db.collection('activities').where({
       openid: openid
     }).remove()
     const deletedActivities = activitiesRes.stats.removed || 0
 
-    // 删除所有track_points
+    // 删除用户所有track_points
     const pointsRes = await db.collection('track_points').where({
-      openid: openid
+      userId: userId
     }).remove()
     const deletedPoints = pointsRes.stats.removed || 0
 

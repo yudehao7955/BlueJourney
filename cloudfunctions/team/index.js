@@ -390,16 +390,18 @@ async function getActiveTeam(openid) {
       ])
     ).where({
       status: _.or([1, 2])
-    }).get()
+    }).orderBy('createTime', 'desc').get()
 
     if (teamRes.data && teamRes.data.length > 0) {
-      // 返回最新的活跃队伍
+      // 返回最新的活跃队伍（按创建时间倒序，取第一个）
       const team = teamRes.data[0]
       return {
         success: true,
         team: {
           _id: team._id,
-          name: team.name,
+          teamName: team.teamName,
+          memberCount: team.memberCount,
+          maxMembers: team.maxMembers,
           status: team.status,
           creatorOpenid: team.creatorOpenid,
           isCaptain: team.creatorOpenid === openid
